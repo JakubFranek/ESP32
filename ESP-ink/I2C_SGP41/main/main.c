@@ -24,9 +24,9 @@ void task_toggle_led(void *pvParameters)
     while (1)
     {
         gpio_set_level(LED_PIN, 1);
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(250 / portTICK_PERIOD_MS);
 
         gpio_set_level(LED_PIN, 0);
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(250 / portTICK_PERIOD_MS);
     }
 }
