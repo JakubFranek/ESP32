@@ -15,14 +15,36 @@
 
 static uint8_t sgp41_calculate_crc8(uint8_t data[2]);
 
+/**
+ * @brief Initializes an `Sgp41Device` by setting up the VOC and NOx gas index
+ *        algorithm parameters.
+ *
+ * Call once before using any other SGP41 driver function.
+ *
+ * @param device Pointer to the `Sgp41Device` structure to be initialized.
+ *
+ * @retval `SGP41_SUCCESS` Initialization successful.
+ */
 Sgp41Status sgp41_initialize(Sgp41Device *device)
 {
-
     GasIndexAlgorithm_init(&device->gia_voc, GasIndexAlgorithm_ALGORITHM_TYPE_VOC);
     GasIndexAlgorithm_init(&device->gia_nox, GasIndexAlgorithm_ALGORITHM_TYPE_NOX);
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Converts raw sensor data to gas index values using the VOC and NOx gas
+ *        index algorithms.
+ *
+ * This function takes raw sensor data as input and converts it into gas index
+ * values for VOC and NOx using the `GasIndexAlgorithm_process` function.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ * @param raw_data Pointer to the raw sensor data structure.
+ * @param data Pointer to the `Sgp41Data` structure to store the converted data.
+ *
+ * @return `SGP41_SUCCESS` Convertion successful.
+ */
 Sgp41Status sgp41_convert_raw_data(Sgp41Device *device, Sgp41RawData *raw_data, Sgp41Data *data)
 {
     int32_t sraw_voc_32bit = (raw_data->sraw_voc[0] << 8) + raw_data->sraw_voc[1];
@@ -33,6 +55,17 @@ Sgp41Status sgp41_convert_raw_data(Sgp41Device *device, Sgp41RawData *raw_data, 
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Reads raw sensor data, verifies the CRC, and converts it to gas index
+ *        values using the VOC and NOx gas index algorithms.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ * @param data Pointer to the `Sgp41Data` structure to store the converted data.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ * @retval `SGP41_CRC_FAILURE` CRC check failed.
+ */
 Sgp41Status sgp41_read_gas_indices(Sgp41Device *device, Sgp41Data *data)
 {
     Sgp41RawData raw_data;
@@ -43,6 +76,19 @@ Sgp41Status sgp41_read_gas_indices(Sgp41Device *device, Sgp41Data *data)
     return sgp41_convert_raw_data(device, &raw_data, data);
 }
 
+/**
+ * @brief Verifies the CRC of VOC and NOx raw sensor data.
+ *
+ * It uses a user-provided CRC calculation function if available, otherwise
+ * it defaults to an internal CRC calculation.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ * @param raw_data Pointer to the `Sgp41RawData` structure containing the raw data
+ *                 and expected CRC values.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_CRC_FAILURE` CRC check failed.
+ */
 Sgp41Status sgp41_check_crc(Sgp41Device *device, Sgp41RawData *raw_data)
 {
     uint8_t crc_voc;
@@ -65,6 +111,21 @@ Sgp41Status sgp41_check_crc(Sgp41Device *device, Sgp41RawData *raw_data)
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Retrieves the serial number from the SGP41 sensor.
+ *
+ * This function reads the serial number from the SGP41 sensor and stores it in the
+ * `Sgp41SerialNumber` structure. The serial number is composed of three 2-byte parts (MSB,
+ * "mid", and LSB) and each part has a corresponding CRC value.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ * @param serial_number Pointer to the `Sgp41SerialNumber` structure to store the
+ *                      serial number.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ * @retval `SGP41_CRC_FAILURE` CRC check failed.
+ */
 Sgp41Status sgp41_get_serial_number(Sgp41Device *device, Sgp41SerialNumber *serial_number)
 {
     uint8_t rx_data[9];
@@ -101,6 +162,17 @@ Sgp41Status sgp41_get_serial_number(Sgp41Device *device, Sgp41SerialNumber *seri
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Executes the conditioning command on the SGP41 sensor.
+ *
+ * WARNING: This function must be followed up by a measurement command or heater off command
+ * within 10 seconds to prevent damage to the sensor.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ */
 Sgp41Status sgp41_execute_conditioning(Sgp41Device *device)
 {
     uint8_t tx_data[8] = {SGP41_CMD_EXEC_COND, SGP41_DEF_RH, SGP41_DEF_TEMP};
@@ -110,6 +182,19 @@ Sgp41Status sgp41_execute_conditioning(Sgp41Device *device)
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Writes the measurement command and optional temperature and humidity
+ *        values to the SGP41 sensor.
+ *
+ * To read the raw sensor data, wait for 50 ms and call `sgp41_read_raw_signals`.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ * @param temp_celsius Optional pointer to the temperature value in Celsius degrees.
+ * @param rel_hum_pct Optional pointer to the relative humidity value in percent.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ */
 Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, float *rel_hum_pct)
 {
     uint8_t tx_data[8] = {SGP41_CMD_MEAS_RAW, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -147,6 +232,21 @@ Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, 
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Reads raw sensor data from the SGP41 sensor.
+ *
+ * This function reads the raw sensor data from the SGP41 sensor and stores it in
+ * the `Sgp41RawData` structure. The raw data contains the raw VOC and NOx sensor
+ * values, as well as the expected CRC values for the raw data.
+ *
+ * Should be preceded by a call to `sgp41_measure_raw_signals` (with a minimum interval of 50 ms).
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ * @param raw_data Pointer to the `Sgp41RawData` structure to store the raw data.
+ *
+ * @retval `SGP41_SUCCESS` Read successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ */
 Sgp41Status sgp41_read_raw_signals(Sgp41Device *device, Sgp41RawData *raw_data)
 {
     uint8_t rx_data[6];
@@ -164,6 +264,17 @@ Sgp41Status sgp41_read_raw_signals(Sgp41Device *device, Sgp41RawData *raw_data)
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Turns the SGP41 sensor's heater off.
+ *
+ * This function sends the command to turn the heater off to the SGP41 sensor.
+ * The sensor enters idle mode.
+ *
+ * @param device Pointer to the `Sgp41Device` structure.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ */
 Sgp41Status sgp41_turn_heater_off(Sgp41Device *device)
 {
     if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_HEATER_OFF}, 8) != 0)
@@ -171,6 +282,18 @@ Sgp41Status sgp41_turn_heater_off(Sgp41Device *device)
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Executes the self-test command on the SGP41 sensor.
+ *
+ * This function sends the self-test command to the SGP41 sensor. The result
+ * of the self-test can be evaluated using the sgp41_evaluate_self_test
+ * function, after a minimum interval of 320 ms.
+ *
+ * @param device Pointer to the Sgp41Device structure.
+ *
+ * @retval `SGP41_SUCCESS` Command successful.
+ * @retval `SGP41_I2C_ERROR` I2C error occured.
+ */
 Sgp41Status sgp41_execute_self_test(Sgp41Device *device)
 {
     if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SELF_TEST}, 2) != 0)
@@ -178,6 +301,21 @@ Sgp41Status sgp41_execute_self_test(Sgp41Device *device)
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Evaluate the result of the SGP41 sensor's self-test.
+ *
+ * Reads the self-test result from the SGP41 sensor and verifies the integrity of
+ * the data using CRC.
+ *
+ * Call this function >320 ms after a call to `sgp41_execute_self_test`.
+ *
+ * @param device Pointer to an `Sgp41Device` structure representing the sensor instance.
+ *
+ * @retval `SGP41_SUCCESS` Self-test completed successfully.
+ * @retval `SGP41_I2C_ERROR` I2C communication error occurred.
+ * @retval `SGP41_CRC_FAILURE` CRC verification of the received data failed.
+ * @retval `SGP41_SELF_TEST_FAILURE` The self-test indicated a sensor failure.
+ */
 Sgp41Status sgp41_evaluate_self_test(Sgp41Device *device)
 {
     uint8_t rx_data[3];
@@ -200,6 +338,17 @@ Sgp41Status sgp41_evaluate_self_test(Sgp41Device *device)
     return SGP41_SUCCESS;
 }
 
+/**
+ * @brief Calculates the CRC-8 checksum of two bytes of data.
+ *
+ * This function implements the CRC-8 algorithm as specified in the SGP41
+ * datasheet. It takes two bytes of data and returns the calculated CRC-8
+ * checksum.
+ *
+ * @param data Two bytes of data to calculate the CRC-8 checksum for.
+ *
+ * @return The calculated CRC-8 checksum.
+ */
 static uint8_t sgp41_calculate_crc8(uint8_t data[2])
 {
     uint8_t crc = 0xFF;
