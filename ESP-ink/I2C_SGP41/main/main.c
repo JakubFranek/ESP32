@@ -106,8 +106,8 @@ void task_measure_voc_nox(void *pvParameters)
 
 int8_t sgp41_i2c_write(uint8_t address, const uint8_t *payload, uint8_t length)
 {
-    // Address not necessary
-    (void)address;
+
+    (void)address; // Address not necessary
     // For unknown reason the timeout has to be quite long (5 ms is not enough, 10 ms seems to be fine)
     esp_err_t err = i2c_master_transmit(sgp41_device_handle, payload, length, 10);
     return err == ESP_OK ? 0 : -1;
@@ -115,8 +115,7 @@ int8_t sgp41_i2c_write(uint8_t address, const uint8_t *payload, uint8_t length)
 
 int8_t sgp41_i2c_read(uint8_t address, uint8_t *payload, uint8_t length)
 {
-    // Address not necessary
-    (void)address;
+    (void)address; // Address not necessary
     // For unknown reason the timeout has to be quite long (5 ms is not enough, 10 ms seems to be fine)
     esp_err_t err = i2c_master_receive(sgp41_device_handle, payload, length, 10);
     return err == ESP_OK ? 0 : -1;
