@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h> // define NULL
+#include <string.h>
 
 #include "sps30_i2c.h"
 
@@ -13,7 +14,447 @@
         }                            \
     } while (0)
 
+/**
+ * Error-checking macro: if `expr` is `NULL`, this macro returns `SPS30_POINTER_NULL`,
+ * exiting the function where this macro was used immediately.
+ */
+#define SPS30_CHECK_NULL(expr)         \
+    do                                 \
+    {                                  \
+        if (expr == NULL)              \
+        {                              \
+            return SPS30_POINTER_NULL; \
+        }                              \
+    } while (0)
+
+static Sps30Status sps30_check_checksum(Sps30Device *device, uint8_t data[2], uint8_t checksum);
+static Sps30Status sps30_calculate_checksum(Sps30Device *device, uint8_t data[2], uint8_t *checksum);
 static uint8_t sps30_calculate_crc8(uint8_t data[2]);
+static int8_t sps30_check_device(Sps30Device *device);
+static float sps30_convert_bytes_to_float(uint8_t bytes[4]);
+
+/**
+ * @brief Starts the measurement on the SPS30 sensor.
+ *
+ * Depending on the `data_format` parameter, use either `sps30_read_measured_values_float`
+ * or `sps30_read_measured_values_uint16` functions to read the measured values.
+ *
+ * Data will be available within 20 ms. Check availability of data using
+ * `sps30_read_data_ready_flag` function.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[in] data_format The data format to use for the measurement. The
+ * possible values are `SPS30_FLOAT` and `SPS30_UINT16`.
+ *
+ * @retval `SPS30_SUCCESS` Command sent successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ */
+int8_t sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    uint8_t tx_data[SPS30_I2C_CMD_START_MEASUREMENT_LENGTH] =
+        {data_format == SPS30_FLOAT ? SPS30_I2C_CMD_START_MEASUREMENT_FLOAT : SPS30_I2C_CMD_START_MEASUREMENT_UINT16};
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, tx_data, SPS30_I2C_CMD_START_MEASUREMENT_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Stops the measurement on the SPS30 sensor.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ *
+ * @retval `SPS30_SUCCESS` Command sent successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ */
+int8_t sps30_stop_measurement(Sps30Device *device)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_STOP_MEASUREMENT}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Reads the data ready flag from the SPS30 sensor.
+ *
+ * This function verifies the received checksum to ensure data integrity.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] data_ready A pointer to a boolean where the data ready flag is stored.
+ * It will be set to `true` if new data is ready, or `false` otherwise.
+ *
+ * @retval `SPS30_SUCCESS` Data ready flag read and checksum verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `data_ready` pointer is `NULL`.
+ */
+int8_t sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(data_ready);
+
+    uint8_t rx_data[3];
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_DATA_READY_FLAG}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, 3) != 0)
+        return SPS30_I2C_ERROR;
+
+    SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[0], rx_data[1]}, rx_data[2]));
+
+    *data_ready = (rx_data[1] == 0x01) ? true : false;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Reads the measured values from the SPS30 sensor in floating-point format.
+ *
+ * The function checks the returned checksums to ensure data integrity. This function call
+ * must be preceded by a call to `sps30_start_measurement` with `SPS30_FLOAT` as the data format.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] data A pointer to a `Sps30FloatData` struct where the measured
+ * values are stored.
+ *
+ * @retval `SPS30_SUCCESS` Measured values read and checksums verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `data` pointer is `NULL`.
+ */
+int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(data);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_MEASURED_VALUES}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    uint8_t rx_data[SPS30_I2C_FLOAT_DATA_LENGTH];
+
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, SPS30_I2C_FLOAT_DATA_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    for (uint8_t i = 0; i < SPS30_I2C_FLOAT_DATA_LENGTH; i = i + 3)
+    {
+        // Every third bytes is a CRC8 checksum of two previous bytes
+        SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
+    }
+
+    float parsed_data[10];
+
+    for (uint8_t i = 0; i < 10; i++)
+    {
+        // Every 6 bytes is a single float (MSB, MSB-1, CRC8, LSB+1, LSB, CRC8)
+        parsed_data[i] = sps30_convert_bytes_to_float((uint8_t[]){rx_data[6 * i], rx_data[6 * i + 1],
+                                                                  rx_data[6 * i + 3], rx_data[6 * i + 4]});
+    }
+
+    data->mass_concentration_pm1_0 = parsed_data[0];
+    data->mass_concentration_pm2_5 = parsed_data[1];
+    data->mass_concentration_pm4_0 = parsed_data[2];
+    data->mass_concentration_pm10_0 = parsed_data[3];
+    data->number_concentration_pm0_5 = parsed_data[4];
+    data->number_concentration_pm1_0 = parsed_data[5];
+    data->number_concentration_pm2_5 = parsed_data[6];
+    data->number_concentration_pm4_0 = parsed_data[7];
+    data->number_concentration_pm10_0 = parsed_data[8];
+    data->typical_particle_size = parsed_data[9];
+
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Reads the measured values from the SPS30 sensor in unsigned 16-bit integer format.
+ *
+ * The function checks the returned checksums to ensure data integrity. This function call
+ * must be preceded by a call to `sps30_start_measurement` with `SPS30_UINT16` as the data format.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] data A pointer to a `Sps30Uint16Data` struct where the measured
+ * values are stored.
+ *
+ * @retval `SPS30_SUCCESS` Measured values read and checksums verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `data` pointer is `NULL`.
+ */
+int8_t sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *data)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(data);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_MEASURED_VALUES}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    uint8_t rx_data[SPS30_I2C_UINT16_DATA_LENGTH];
+
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, SPS30_I2C_UINT16_DATA_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    for (uint8_t i = 0; i < SPS30_I2C_UINT16_DATA_LENGTH; i = i + 3)
+    {
+        // Every third bytes is a CRC8 checksum of two previous bytes
+        SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
+    }
+
+    uint16_t parsed_data[10];
+
+    for (uint8_t i = 0; i < 10; i++)
+    {
+        // Every 3 bytes is a single uint16_t (MSB, LSB, CRC8)
+        parsed_data[i] = ((uint16_t)rx_data[3 * i] << 8) | (rx_data[3 * i + 1]);
+    }
+
+    data->mass_concentration_pm1_0 = parsed_data[0];
+    data->mass_concentration_pm2_5 = parsed_data[1];
+    data->mass_concentration_pm4_0 = parsed_data[2];
+    data->mass_concentration_pm10_0 = parsed_data[3];
+    data->number_concentration_pm0_5 = parsed_data[4];
+    data->number_concentration_pm1_0 = parsed_data[5];
+    data->number_concentration_pm2_5 = parsed_data[6];
+    data->number_concentration_pm4_0 = parsed_data[7];
+    data->number_concentration_pm10_0 = parsed_data[8];
+    data->typical_particle_size = parsed_data[9];
+
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Put the SPS30 into sleep mode.
+ *
+ * This function puts the SPS30 into sleep mode to conserve power. The sensor can be woken up with
+ * `sps30_wake_up`.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication functions.
+ *
+ * @retval `SPS30_SUCCESS` Sleep command sent successfully.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ */
+int8_t sps30_sleep(Sps30Device *device)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_SLEEP}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Wake up the SPS30 sensor from sleep mode.
+ *
+ * The device is normally in sleep mode. The device can be woken up by sending
+ * this command. The device will then start to measure particulate matter
+ * concentrations.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ *
+ * @retval `SPS30_SUCCESS` Command sent successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ */
+int8_t sps30_wake_up(Sps30Device *device)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    // Send wake-up command twice (first command enables I2C interface, but is ignored)
+    for (uint8_t i = 0; i < 2; i++)
+    {
+        if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_WAKEUP}, SPS30_I2C_CMD_LENGTH) != 0)
+            return SPS30_I2C_ERROR;
+    }
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Initiates the fan cleaning process on the SPS30 sensor.
+ *
+ * Fan cleaning helps maintain the sensor's performance by removing
+ * dust and particles from the internal fan blades. The fan will be accelerated to maximum speed for 10 seconds.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ *
+ * @retval `SPS30_SUCCESS` Command sent successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ */
+int8_t sps30_start_fan_cleaning(Sps30Device *device)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_START_FAN_CLEANING}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Reads the auto cleaning interval from the SPS30 sensor and verifies the checksum.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] interval A pointer to a `uint32_t` where the auto cleaning
+ * interval is stored in seconds.
+ *
+ * @retval `SPS30_SUCCESS` Auto cleaning interval read and checksum verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `interval` pointer is `NULL`.
+ */
+int8_t sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *interval)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(interval);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_WRITE_AUTO_CLEANING_INTERVAL}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    uint8_t rx_data[6];
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, 6) != 0)
+        return SPS30_I2C_ERROR;
+
+    SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[0], rx_data[1]}, rx_data[2]));
+    SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[3], rx_data[4]}, rx_data[5]));
+
+    *interval = (rx_data[0] << 24) | (rx_data[1] << 16) | (rx_data[3] << 8) | rx_data[4];
+
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Sets the auto cleaning interval for the SPS30 sensor.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[in] interval The auto cleaning interval in seconds.
+ *
+ * @retval `SPS30_SUCCESS` Auto cleaning interval command sent successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum calculation failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `interval` pointer is `NULL`.
+ */
+int8_t sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    uint8_t tx_data[6];
+    tx_data[0] = (interval >> 24) & 0xFF;
+    tx_data[1] = (interval >> 16) & 0xFF;
+    tx_data[3] = (interval >> 8) & 0xFF;
+    tx_data[4] = interval & 0xFF;
+
+    SPS30_CHECK_STATUS(sps30_calculate_checksum(device, (uint8_t[]){tx_data[0], tx_data[1]}, &tx_data[2]));
+    SPS30_CHECK_STATUS(sps30_calculate_checksum(device, (uint8_t[]){tx_data[3], tx_data[4]}, &tx_data[5]));
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_WRITE_AUTO_CLEANING_INTERVAL}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, tx_data, 6) != 0)
+        return SPS30_I2C_ERROR;
+
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Reads the product type from the SPS30 sensor.
+ *
+ * The product type is a 12-byte array of ASCII characters. The product type is null-terminated.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] product_type A pointer to a `uint8_t` array of size 12 where the
+ * product type is stored.
+ *
+ * @retval `SPS30_SUCCESS` Product type read and checksums verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `product_type` pointer is `NULL`.
+ */
+int8_t sps30_read_product_type(Sps30Device *device, uint8_t *product_type)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(product_type);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_PRODUCT_TYPE}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    uint8_t rx_data[SPS30_I2C_PRODUCT_TYPE_LENGTH];
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, SPS30_I2C_PRODUCT_TYPE_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    for (uint8_t i = 0; i < SPS30_I2C_PRODUCT_TYPE_LENGTH; i = i + 3)
+    {
+        // Every 3rd byte is a CRC8 checksum of two previous bytes
+        SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
+    }
+
+    memcpy(product_type, rx_data, SPS30_I2C_PRODUCT_TYPE_LENGTH);
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Reads the serial number from the SPS30 sensor.
+ *
+ * The serial number is a 48-byte array of ASCII characters.
+ * The function ensures data integrity by verifying the checksums of the received data.
+ * The serial number is null-terminated.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] serial_number A pointer to a `uint8_t` array of size 48 where the
+ * serial number is stored.
+ *
+ * @retval `SPS30_SUCCESS` Serial number read and checksums verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `serial_number` pointer is `NULL`.
+ */
+int8_t sps30_read_serial_number(Sps30Device *device, uint8_t *serial_number)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(serial_number);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_SERIAL_NUMBER}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    uint8_t rx_data[SPS30_I2C_SERIAL_NUMBER_LENGTH];
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, SPS30_I2C_SERIAL_NUMBER_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    for (uint8_t i = 0; i < SPS30_I2C_SERIAL_NUMBER_LENGTH; i = i + 3)
+    {
+        // Every 3rd byte is a CRC8 checksum of two previous bytes
+        SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
+    }
+
+    memcpy(serial_number, rx_data, SPS30_I2C_SERIAL_NUMBER_LENGTH);
+    return SPS30_SUCCESS;
+}
 
 /**
  * @brief Reads the firmware version from the SPS30 device and verifies its checksum.
@@ -26,33 +467,166 @@ static uint8_t sps30_calculate_crc8(uint8_t data[2]);
  * @retval `SPS30_SUCCESS` Firmware version read and verified successfully.
  * @retval `SPS30_I2C_ERROR` I2C communication error.
  * @retval `SPS30_CRC_FAILURE` Firmware version checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `version` pointer is `NULL`.
  */
 int8_t sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersion *version)
 {
-    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_VERSION}, 2) != 0)
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(version);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_VERSION}, SPS30_I2C_CMD_LENGTH) != 0)
         return SPS30_I2C_ERROR;
 
-    uint8_t rx_data[3];
+    uint8_t rx_data[SPS30_I2C_FIRMWARE_LENGTH];
 
-    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, 3) != 0)
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, SPS30_I2C_FIRMWARE_LENGTH) != 0)
         return SPS30_I2C_ERROR;
+
+    SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[0], rx_data[1]}, rx_data[2]));
 
     version->major = rx_data[0];
     version->minor = rx_data[1];
 
-    uint8_t received_checksum = rx_data[2];
-    uint8_t calculated_checksum;
+    return SPS30_SUCCESS;
+}
 
+/**
+ * @brief Reads the device status flags from the SPS30 sensor and verifies its checksum.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ * @param[out] status_flags A pointer to a `Sps30StatusFlags` struct where the
+ * read status flags are stored.
+ *
+ * @retval `SPS30_SUCCESS` Status flags read and checksums verified successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_CRC_FAILURE` Status flags checksum verification failed.
+ * @retval `SPS30_POINTER_NULL` `device` or `status_flags` pointer is `NULL`.
+ */
+int8_t sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags *status_flags)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+    SPS30_CHECK_NULL(status_flags);
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_DEVICE_STATUS_REGISTER}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    uint8_t rx_data[SPS30_I2C_STATUS_FLAGS_LENGTH];
+
+    if (device->i2c_read(SPS30_I2C_ADDRESS, rx_data, SPS30_I2C_STATUS_FLAGS_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+
+    for (uint8_t i = 0; i < SPS30_I2C_STATUS_FLAGS_LENGTH; i = i + 3)
+    {
+        // Every 3rd byte is a CRC8 checksum of two previous bytes
+        SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
+    }
+
+    uint32_t status_register = ((uint32_t)rx_data[0] << 24) | ((uint32_t)rx_data[1] << 16) | ((uint32_t)rx_data[3] << 8) | rx_data[4];
+
+    status_flags->fan_error = status_register & (1 << 4);
+    status_flags->laser_error = status_register & (1 << 5);
+    status_flags->speed_warning = status_register & (1 << 21);
+
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Clears the device status flags of the SPS30 sensor.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ *
+ * @retval `SPS30_SUCCESS` Device status flags cleared successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ */
+int8_t sps30_clear_device_status_flags(Sps30Device *device)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_CLEAR_DEVICE_STATUS_REGISTER}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Resets the SPS30 device.
+ *
+ * After calling this command, the module is in the same state as after a power reset.
+ *
+ * To perform a reset when the sensor is in sleep mode, it is required to send first a wake-up sequence to activate
+ * the interface.
+ *
+ * @param[in] device The `Sps30Device` struct containing the I2C communication
+ * functions.
+ *
+ * @retval `SPS30_SUCCESS` Command sent successfully.
+ * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
+ * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
+ */
+int8_t sps30_reset(Sps30Device *device)
+{
+    if (sps30_check_device(device) != 0)
+        return SPS30_POINTER_NULL;
+
+    if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_RESET}, SPS30_I2C_CMD_LENGTH) != 0)
+        return SPS30_I2C_ERROR;
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Verifies the checksum for a given data array using the SPS30 device's CRC function.
+ *
+ * This function calculates the CRC-8 checksum of the provided 2-byte data array and compares it
+ * with the given checksum. If the SPS30 device has a custom CRC calculation function defined, it uses that function.
+ * Otherwise, it falls back to the default software CRC-8 algorithm.
+ *
+ * @param[in] device The `Sps30Device` struct containing the CRC calculation function.
+ * @param[in] data A 2-byte array for which the checksum is to be verified.
+ * @param[in] checksum A `uint8_t` containing the expected checksum.
+ *
+ * @retval `SPS30_SUCCESS` Checksum verified successfully.
+ * @retval `SPS30_CRC_FAILURE` CRC verification using the device's function failed.
+ */
+static Sps30Status sps30_check_checksum(Sps30Device *device, uint8_t data[2], uint8_t checksum)
+{
+    uint8_t calculated_checksum = 0;
+    SPS30_CHECK_STATUS(sps30_calculate_checksum(device, data, &calculated_checksum));
+
+    if (calculated_checksum != checksum)
+        return SPS30_CRC_FAILURE;
+
+    return SPS30_SUCCESS;
+}
+
+/**
+ * @brief Calculates the checksum for a given data array using the SPS30 device's CRC function.
+ *
+ * This function calculates the CRC-8 checksum of the provided 2-byte data array.
+ * If the SPS30 device has a custom CRC calculation function defined, it uses that function.
+ * Otherwise, it falls back to the default software CRC-8 algorithm.
+ *
+ * @param[in] device The `Sps30Device` struct containing the CRC calculation function.
+ * @param[in] data A 2-byte array for which the checksum is to be calculated.
+ * @param[out] checksum A pointer to a `uint8_t` where the calculated checksum is stored.
+ *
+ * @retval `SPS30_SUCCESS` Checksum calculated successfully.
+ * @retval `SPS30_CRC_FAILURE` CRC calculation using the device's function failed.
+ */
+static Sps30Status sps30_calculate_checksum(Sps30Device *device, uint8_t data[2], uint8_t *checksum)
+{
     if (device->calculate_crc != NULL)
     {
-        if (device->calculate_crc(rx_data, 2, SPS30_CRC8_POLYNOMIAL, &calculated_checksum) != 0)
+        if (device->calculate_crc(data, 2, SPS30_CRC8_POLYNOMIAL, checksum) != 0)
             return SPS30_CRC_FAILURE;
     }
     else
-        calculated_checksum = sps30_calculate_crc8((uint8_t[]){rx_data[0], rx_data[1]});
+        *checksum = sps30_calculate_crc8(data);
 
-    if (calculated_checksum != received_checksum)
-        return SPS30_CRC_FAILURE;
     return SPS30_SUCCESS;
 }
 
@@ -82,4 +656,48 @@ static uint8_t sps30_calculate_crc8(uint8_t data[2])
         }
     }
     return crc;
+}
+
+/**
+ * @brief Checks whether the provided `Sps30Device` struct contains valid pointers.
+ *
+ * Returns -1 if the `device`pointer is NULL, or if the `i2c_write` or `i2c_read`
+ * functions are `NULL`.
+ *
+ * WARNING: This function does not check whether the function pointers are
+ * pointing to valid functions.
+ *
+ * @param[in] device The `Sps30Device` struct to be checked.
+ *
+ * @return 0 if the struct pointers are valid, -1 otherwise.
+ */
+static int8_t sps30_check_device(Sps30Device *device)
+{
+    if (device == NULL)
+        return -1;
+    if (device->i2c_write == NULL || device->i2c_read == NULL)
+        return -1;
+    return 0;
+}
+
+/**
+ * @brief Converts a 4-byte array to a floating-point number.
+ *
+ * This function takes a 4-byte array interpreted as a big-endian
+ * IEEE 754 floating-point number and converts it to a `float`.
+ *
+ * @param[in] bytes A 4-byte array representing a float in big-endian order.
+ *
+ * @return The converted floating-point value.
+ */
+static float sps30_convert_bytes_to_float(uint8_t bytes[4])
+{
+    uint32_t value = bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
+    union
+    {
+        uint32_t i;
+        float f;
+    } converter;
+    converter.i = value;
+    return converter.f;
 }
