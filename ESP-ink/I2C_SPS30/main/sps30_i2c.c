@@ -1,6 +1,6 @@
-#include <stdint.h>
+#include <stdint.h> // define uint8_t, uint16_t etc.
 #include <stddef.h> // define NULL
-#include <string.h>
+#include <string.h> // define memcpy
 
 #include "sps30_i2c.h"
 
@@ -39,7 +39,7 @@ static float sps30_convert_bytes_to_float(uint8_t bytes[4]);
  * Depending on the `data_format` parameter, use either `sps30_read_measured_values_float`
  * or `sps30_read_measured_values_uint16` functions to read the measured values.
  *
- * Data will be available within 20 ms. Check availability of data using
+ * Data will be available after 1 second. Check availability of data using
  * `sps30_read_data_ready_flag` function.
  *
  * @param[in] device The `Sps30Device` struct containing the I2C communication
@@ -56,8 +56,17 @@ int8_t sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format)
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
 
-    uint8_t tx_data[SPS30_I2C_CMD_START_MEASUREMENT_LENGTH] =
-        {data_format == SPS30_FLOAT ? SPS30_I2C_CMD_START_MEASUREMENT_FLOAT : SPS30_I2C_CMD_START_MEASUREMENT_UINT16};
+    uint8_t tx_data[SPS30_I2C_CMD_START_MEASUREMENT_LENGTH];
+    if (data_format == SPS30_FLOAT)
+    {
+        uint8_t cmd[] = {SPS30_I2C_CMD_START_MEASUREMENT_FLOAT};
+        memcpy(tx_data, cmd, sizeof(cmd));
+    }
+    else
+    {
+        uint8_t cmd[] = {SPS30_I2C_CMD_START_MEASUREMENT_UINT16};
+        memcpy(tx_data, cmd, sizeof(cmd));
+    }
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, tx_data, SPS30_I2C_CMD_START_MEASUREMENT_LENGTH) != 0)
         return SPS30_I2C_ERROR;
@@ -381,11 +390,11 @@ int8_t sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
 /**
  * @brief Reads the product type from the SPS30 sensor.
  *
- * The product type is a 12-byte array of ASCII characters. The product type is null-terminated.
+ * The product type is an 8-byte array of ASCII characters. The product type is null-terminated.
  *
  * @param[in] device The `Sps30Device` struct containing the I2C communication
  * functions.
- * @param[out] product_type A pointer to a `uint8_t` array of size 12 where the
+ * @param[out] product_type A pointer to a `char` array of size 8 where the
  * product type is stored.
  *
  * @retval `SPS30_SUCCESS` Product type read and checksums verified successfully.
@@ -393,7 +402,7 @@ int8_t sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `product_type` pointer is `NULL`.
  */
-int8_t sps30_read_product_type(Sps30Device *device, uint8_t *product_type)
+int8_t sps30_read_product_type(Sps30Device *device, char *product_type)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -412,20 +421,31 @@ int8_t sps30_read_product_type(Sps30Device *device, uint8_t *product_type)
         SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
     }
 
-    memcpy(product_type, rx_data, SPS30_I2C_PRODUCT_TYPE_LENGTH);
+    // Copy the product type to the output buffer, skipping the checksum bytes
+    uint8_t input_index = 0, output_index = 0;
+    while (output_index < 8)
+    {
+        if (input_index % 3 != 2)
+        {
+            product_type[output_index] = rx_data[input_index];
+            output_index++;
+        }
+        input_index++;
+    }
+
     return SPS30_SUCCESS;
 }
 
 /**
  * @brief Reads the serial number from the SPS30 sensor.
  *
- * The serial number is a 48-byte array of ASCII characters.
+ * The serial number is a 32-byte array of ASCII characters.
  * The function ensures data integrity by verifying the checksums of the received data.
  * The serial number is null-terminated.
  *
  * @param[in] device The `Sps30Device` struct containing the I2C communication
  * functions.
- * @param[out] serial_number A pointer to a `uint8_t` array of size 48 where the
+ * @param[out] serial_number A pointer to a `char` array of size 32 where the
  * serial number is stored.
  *
  * @retval `SPS30_SUCCESS` Serial number read and checksums verified successfully.
@@ -433,7 +453,7 @@ int8_t sps30_read_product_type(Sps30Device *device, uint8_t *product_type)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `serial_number` pointer is `NULL`.
  */
-int8_t sps30_read_serial_number(Sps30Device *device, uint8_t *serial_number)
+int8_t sps30_read_serial_number(Sps30Device *device, char *serial_number)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -452,7 +472,18 @@ int8_t sps30_read_serial_number(Sps30Device *device, uint8_t *serial_number)
         SPS30_CHECK_STATUS(sps30_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
     }
 
-    memcpy(serial_number, rx_data, SPS30_I2C_SERIAL_NUMBER_LENGTH);
+    // Copy the serial number to the output buffer, skipping the checksum bytes
+    uint8_t input_index = 0, output_index = 0;
+    while (output_index < 32) // TODO: fix magic numbers
+    {
+        if (input_index % 3 != 2)
+        {
+            serial_number[output_index] = rx_data[input_index];
+            output_index++;
+        }
+        input_index++;
+    }
+
     return SPS30_SUCCESS;
 }
 

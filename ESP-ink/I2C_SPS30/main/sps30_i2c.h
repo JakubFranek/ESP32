@@ -130,15 +130,15 @@ typedef struct Sps30Device
 int8_t sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format);
 int8_t sps30_stop_measurement(Sps30Device *device);
 int8_t sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready);
-int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data);
+int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data); // TODO: overload for uint16
 int8_t sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *data);
 int8_t sps30_sleep(Sps30Device *device);
 int8_t sps30_wake_up(Sps30Device *device);
 int8_t sps30_start_fan_cleaning(Sps30Device *device);
 int8_t sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *interval);
 int8_t sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval);
-int8_t sps30_read_product_type(Sps30Device *device, uint8_t *product_type);
-int8_t sps30_read_serial_number(Sps30Device *device, uint8_t *serial_number);
+int8_t sps30_read_product_type(Sps30Device *device, char *product_type);
+int8_t sps30_read_serial_number(Sps30Device *device, char *serial_number);
 int8_t sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersion *version);
 int8_t sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags *status_flags);
 int8_t sps30_clear_device_status_flags(Sps30Device *device);
