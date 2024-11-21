@@ -36,7 +36,7 @@
 static Sps30Status sps30_check_checksum(Sps30Device *device, uint8_t data[2], uint8_t checksum);
 static Sps30Status sps30_calculate_checksum(Sps30Device *device, uint8_t data[2], uint8_t *checksum);
 static uint8_t sps30_calculate_crc8(uint8_t data[2]);
-static int8_t sps30_check_device(Sps30Device *device);
+static Sps30Status sps30_check_device(Sps30Device *device);
 static float sps30_convert_bytes_to_float(uint8_t bytes[4]);
 
 /**
@@ -57,7 +57,7 @@ static float sps30_convert_bytes_to_float(uint8_t bytes[4]);
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  */
-int8_t sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format)
+Sps30Status sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -89,7 +89,7 @@ int8_t sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format)
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  */
-int8_t sps30_stop_measurement(Sps30Device *device)
+Sps30Status sps30_stop_measurement(Sps30Device *device)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -114,7 +114,7 @@ int8_t sps30_stop_measurement(Sps30Device *device)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `data_ready` pointer is `NULL`.
  */
-int8_t sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready)
+Sps30Status sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -150,7 +150,7 @@ int8_t sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `data` pointer is `NULL`.
  */
-int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data)
+Sps30Status sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -209,7 +209,7 @@ int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *dat
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `data` pointer is `NULL`.
  */
-int8_t sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *data)
+Sps30Status sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *data)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -263,7 +263,7 @@ int8_t sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *d
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  */
-int8_t sps30_sleep(Sps30Device *device)
+Sps30Status sps30_sleep(Sps30Device *device)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -287,7 +287,7 @@ int8_t sps30_sleep(Sps30Device *device)
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  */
-int8_t sps30_wake_up(Sps30Device *device)
+Sps30Status sps30_wake_up(Sps30Device *device)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -314,7 +314,7 @@ int8_t sps30_wake_up(Sps30Device *device)
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  */
-int8_t sps30_start_fan_cleaning(Sps30Device *device)
+Sps30Status sps30_start_fan_cleaning(Sps30Device *device)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -337,7 +337,7 @@ int8_t sps30_start_fan_cleaning(Sps30Device *device)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `interval` pointer is `NULL`.
  */
-int8_t sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *interval)
+Sps30Status sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *interval)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -370,7 +370,7 @@ int8_t sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *interval
  * @retval `SPS30_CRC_FAILURE` Checksum calculation failed.
  * @retval `SPS30_POINTER_NULL` `device` or `interval` pointer is `NULL`.
  */
-int8_t sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
+Sps30Status sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -408,7 +408,7 @@ int8_t sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `product_type` pointer is `NULL`.
  */
-int8_t sps30_read_product_type(Sps30Device *device, char *product_type)
+Sps30Status sps30_read_product_type(Sps30Device *device, char *product_type)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -459,7 +459,7 @@ int8_t sps30_read_product_type(Sps30Device *device, char *product_type)
  * @retval `SPS30_CRC_FAILURE` Checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `serial_number` pointer is `NULL`.
  */
-int8_t sps30_read_serial_number(Sps30Device *device, char *serial_number)
+Sps30Status sps30_read_serial_number(Sps30Device *device, char *serial_number)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -506,7 +506,7 @@ int8_t sps30_read_serial_number(Sps30Device *device, char *serial_number)
  * @retval `SPS30_CRC_FAILURE` Firmware version checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `version` pointer is `NULL`.
  */
-int8_t sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersion *version)
+Sps30Status sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersion *version)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -541,7 +541,7 @@ int8_t sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersion *ve
  * @retval `SPS30_CRC_FAILURE` Status flags checksum verification failed.
  * @retval `SPS30_POINTER_NULL` `device` or `status_flags` pointer is `NULL`.
  */
-int8_t sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags *status_flags)
+Sps30Status sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags *status_flags)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -580,7 +580,7 @@ int8_t sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags *sta
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  */
-int8_t sps30_clear_device_status_flags(Sps30Device *device)
+Sps30Status sps30_clear_device_status_flags(Sps30Device *device)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -605,7 +605,7 @@ int8_t sps30_clear_device_status_flags(Sps30Device *device)
  * @retval `SPS30_I2C_ERROR` I2C communication error occurred.
  * @retval `SPS30_POINTER_NULL` `device` pointer is `NULL`.
  */
-int8_t sps30_reset(Sps30Device *device)
+Sps30Status sps30_reset(Sps30Device *device)
 {
     if (sps30_check_device(device) != 0)
         return SPS30_POINTER_NULL;
@@ -708,13 +708,13 @@ static uint8_t sps30_calculate_crc8(uint8_t data[2])
  *
  * @return 0 if the struct pointers are valid, -1 otherwise.
  */
-static int8_t sps30_check_device(Sps30Device *device)
+static Sps30Status sps30_check_device(Sps30Device *device)
 {
     if (device == NULL)
-        return -1;
+        return SPS30_POINTER_NULL;
     if (device->i2c_write == NULL || device->i2c_read == NULL)
-        return -1;
-    return 0;
+        return SPS30_POINTER_NULL;
+    return SPS30_SUCCESS;
 }
 
 /**
