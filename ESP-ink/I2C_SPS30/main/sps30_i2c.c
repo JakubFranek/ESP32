@@ -4,6 +4,10 @@
 
 #include "sps30_i2c.h"
 
+/**
+ * Error-checking macro: if `expr` is not `SPS30_SUCCESS`, this macro returns `expr`,
+ * exiting the function where this macro was used immediately.
+ */
 #define SPS30_CHECK_STATUS(expr)     \
     do                               \
     {                                \
@@ -26,6 +30,8 @@
             return SPS30_POINTER_NULL; \
         }                              \
     } while (0)
+
+/* --- Private function prototypes --- */
 
 static Sps30Status sps30_check_checksum(Sps30Device *device, uint8_t data[2], uint8_t checksum);
 static Sps30Status sps30_calculate_checksum(Sps30Device *device, uint8_t data[2], uint8_t *checksum);
@@ -423,7 +429,7 @@ int8_t sps30_read_product_type(Sps30Device *device, char *product_type)
 
     // Copy the product type to the output buffer, skipping the checksum bytes
     uint8_t input_index = 0, output_index = 0;
-    while (output_index < 8)
+    while (output_index < SPS30_PRODUCT_TYPE_LENGTH)
     {
         if (input_index % 3 != 2)
         {
@@ -474,7 +480,7 @@ int8_t sps30_read_serial_number(Sps30Device *device, char *serial_number)
 
     // Copy the serial number to the output buffer, skipping the checksum bytes
     uint8_t input_index = 0, output_index = 0;
-    while (output_index < 32) // TODO: fix magic numbers
+    while (output_index < SPS30_SERIAL_NUMBER_LENGTH)
     {
         if (input_index % 3 != 2)
         {

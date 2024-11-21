@@ -16,6 +16,8 @@
 #define SPS30_I2C_FLOAT_DATA_LENGTH 60           // bytes
 #define SPS30_I2C_UINT16_DATA_LENGTH 30          // bytes
 #define SPS30_CRC8_POLYNOMIAL 0x31               // x^8 + x^5 + x^4 + 1, initialization to 0xFF
+#define SPS30_PRODUCT_TYPE_LENGTH 8              // chars
+#define SPS30_SERIAL_NUMBER_LENGTH 32            // chars
 
 /* --- Start Measurement Command Settings --- */
 
@@ -130,7 +132,7 @@ typedef struct Sps30Device
 int8_t sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format);
 int8_t sps30_stop_measurement(Sps30Device *device);
 int8_t sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready);
-int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data); // TODO: overload for uint16
+int8_t sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data);
 int8_t sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *data);
 int8_t sps30_sleep(Sps30Device *device);
 int8_t sps30_wake_up(Sps30Device *device);
