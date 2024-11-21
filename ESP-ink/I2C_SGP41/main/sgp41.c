@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include <stddef.h> // define NULL
 
 #include "sgp41.h"
@@ -94,6 +93,7 @@ Sgp41Status sgp41_check_crc(Sgp41Device *device, Sgp41RawData *raw_data)
     uint8_t crc_voc;
     uint8_t crc_nox;
 
+    // TODO: replace with dedicated CRC calculation function like in SPS30 driver
     if (device->calculate_crc != NULL) // If CRC calculation function is provided by user
     {
         device->calculate_crc(raw_data->sraw_voc, 2, SGP41_CRC8_POLYNOMIAL, &crc_voc);
@@ -130,9 +130,9 @@ Sgp41Status sgp41_get_serial_number(Sgp41Device *device, Sgp41SerialNumber *seri
 {
     uint8_t rx_data[9];
 
-    if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SERIAL_NO}, 2) != 0)
+    if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SERIAL_NO}, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
-    if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, 9) != 0)
+    if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, SGP41_RSP_LEN_SERIAL_NO) != 0)
         return SGP41_I2C_ERROR;
 
     serial_number->serial_msb = (rx_data[0] << 8) + rx_data[1];
@@ -177,7 +177,7 @@ Sgp41Status sgp41_execute_conditioning(Sgp41Device *device)
 {
     uint8_t tx_data[8] = {SGP41_CMD_EXEC_COND, SGP41_DEF_RH, SGP41_DEF_TEMP};
 
-    if (device->i2c_write(SGP41_I2C_ADDRESS, tx_data, 8) != 0)
+    if (device->i2c_write(SGP41_I2C_ADDRESS, tx_data, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
     return SGP41_SUCCESS;
 }
@@ -227,7 +227,7 @@ Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, 
     tx_data[6] = temp_data[1];
     tx_data[7] = temp_data[2];
 
-    if (device->i2c_write(SGP41_I2C_ADDRESS, tx_data, 8) != 0)
+    if (device->i2c_write(SGP41_I2C_ADDRESS, tx_data, SGP41_CMD_LEN + SGP41_TEMP_RH_DATA_LEN) != 0)
         return SGP41_I2C_ERROR;
     return SGP41_SUCCESS;
 }
@@ -251,7 +251,7 @@ Sgp41Status sgp41_read_raw_signals(Sgp41Device *device, Sgp41RawData *raw_data)
 {
     uint8_t rx_data[6];
 
-    if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, 6) != 0)
+    if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, SGP41_RSP_LEN_MEAS_RAW) != 0)
         return SGP41_I2C_ERROR;
 
     raw_data->sraw_voc[0] = rx_data[0];
@@ -277,7 +277,7 @@ Sgp41Status sgp41_read_raw_signals(Sgp41Device *device, Sgp41RawData *raw_data)
  */
 Sgp41Status sgp41_turn_heater_off(Sgp41Device *device)
 {
-    if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_HEATER_OFF}, 8) != 0)
+    if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_HEATER_OFF}, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
     return SGP41_SUCCESS;
 }
@@ -296,7 +296,7 @@ Sgp41Status sgp41_turn_heater_off(Sgp41Device *device)
  */
 Sgp41Status sgp41_execute_self_test(Sgp41Device *device)
 {
-    if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SELF_TEST}, 2) != 0)
+    if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SELF_TEST}, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
     return SGP41_SUCCESS;
 }
@@ -321,7 +321,7 @@ Sgp41Status sgp41_evaluate_self_test(Sgp41Device *device)
     uint8_t rx_data[3];
     uint8_t crc_check;
 
-    if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, 3) != 0)
+    if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, SGP41_RSP_LEN_SELF_TEST) != 0)
         return SGP41_I2C_ERROR;
 
     if (device->calculate_crc != NULL)

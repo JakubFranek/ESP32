@@ -1,6 +1,7 @@
 #ifndef INC_SGP41_H_
 #define INC_SGP41_H_
 
+#include <stdint.h>
 #include "sensirion_gas_index_algorithm.h"
 
 /* --- Constants --- */
@@ -8,6 +9,7 @@
 #define SGP41_I2C_ADDRESS 0x59
 #define SGP41_CRC8_POLYNOMIAL 0x31
 #define SGP41_CMD_LEN 2
+#define SGP41_TEMP_RH_DATA_LEN 6
 #define SGP41_DEF_TEMP 0x66, 0x66, 0x93
 #define SGP41_DEF_RH 0x80, 0x00, 0xA2
 
@@ -48,7 +50,7 @@ typedef enum Sgp41Status
     SGP41_SELF_TEST_FAILURE = -7
 } Sgp41Status;
 
-typedef struct Sgp41RawData
+typedef struct Sgp41RawData // TODO: remove checksums, always check internally
 {
     uint8_t sraw_voc[2]; // sraw_voc[0] = msb, sraw_voc[1] = lsb
     uint8_t crc_voc;
@@ -56,7 +58,7 @@ typedef struct Sgp41RawData
     uint8_t crc_nox;
 } Sgp41RawData;
 
-typedef struct Sgp41SerialNumber
+typedef struct Sgp41SerialNumber // TODO: remove checksums, always check internally
 {
     uint16_t serial_msb;
     uint16_t serial_mid;
