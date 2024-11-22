@@ -91,7 +91,7 @@ Sps30Status sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_fo
  */
 Sps30Status sps30_stop_measurement(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0)
+    if (sps30_check_device(device) != 0) // TODO: utilize CHECK_STATUS macro
         return SPS30_POINTER_NULL;
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_STOP_MEASUREMENT}, SPS30_I2C_CMD_LENGTH) != 0)
