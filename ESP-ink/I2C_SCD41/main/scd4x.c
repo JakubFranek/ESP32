@@ -118,7 +118,7 @@ Scd4xStatus scd4x_read_measurement(Scd4xDevice *device, Scd4xData *data)
     for (int i = 0; i < SCD4X_MEASUREMENT_LENGTH; i = i + 3)
         SCD4X_CHECK_STATUS(scd4x_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
 
-    data->co2 = rx_data[0] << 8 | rx_data[1];
+    data->co2_ppm = rx_data[0] << 8 | rx_data[1];
     data->temperature = ((4375 * (int32_t)(rx_data[3] << 8 | rx_data[4])) >> 14) - 4500;
     data->relative_humidity = ((2500 * (uint32_t)(rx_data[6] << 8 | rx_data[7])) >> 14);
 

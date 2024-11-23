@@ -47,7 +47,7 @@ typedef enum Scd4xSensorVariant
 
 typedef struct Scd4xData
 {
-    uint16_t co2;               // ppm
+    uint16_t co2_ppm;           // ppm
     int16_t temperature;        // 100 * °C
     uint16_t relative_humidity; // 100 * %
 } Scd4xData;
