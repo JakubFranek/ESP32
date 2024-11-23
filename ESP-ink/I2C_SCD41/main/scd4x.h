@@ -57,7 +57,7 @@ typedef struct Scd4xDevice
     scd4x_i2c_write_t i2c_write;
     scd4x_i2c_read_t i2c_read;
     scd4x_delay_ms_t delay_ms;
-    scd4x_calculate_crc_t calculate_crc; // Optional: If NULL, internal SW CRC algorithm will be used
+    scd4x_calculate_crc_t calculate_crc; // Optional: If `NULL`, internal SW CRC algorithm will be used
 } Scd4xDevice;
 
 /* --- SCD4x functions --- */

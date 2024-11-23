@@ -1,47 +1,23 @@
+/**
+ * @file sps30_i2c.h
+ * @author Jakub Franek (https://github.com/JakubFranek)
+ * @brief SPS30 I2C driver
+ *
+ * How to use this driver:
+ * 1. Include this header file in your code.
+ * 2. Create an instance of `Sps30Device` and initialize it with the required function pointers.
+ * 3. Call the driver functions as desired (typical first call is `sps30_start_measurement`).
+ */
+
 #ifndef __SPS30_I2C_H__
 #define __SPS30_I2C_H__
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <stdint.h>  // define uint8_t
+#include <stdbool.h> // define bool
 
 /* --- Constants --- */
 
 #define SPS30_I2C_ADDRESS 0x69
-#define SPS30_I2C_CMD_LENGTH 2                   // bytes
-#define SPS30_I2C_CMD_START_MEASUREMENT_LENGTH 5 // bytes
-#define SPS30_I2C_PRODUCT_TYPE_LENGTH 12         // bytes
-#define SPS30_I2C_SERIAL_NUMBER_LENGTH 48        // bytes
-#define SPS30_I2C_FIRMWARE_LENGTH 3              // bytes
-#define SPS30_I2C_STATUS_FLAGS_LENGTH 6          // bytes
-#define SPS30_I2C_FLOAT_DATA_LENGTH 60           // bytes
-#define SPS30_I2C_UINT16_DATA_LENGTH 30          // bytes
-#define SPS30_CRC8_POLYNOMIAL 0x31               // x^8 + x^5 + x^4 + 1, initialization to 0xFF
-#define SPS30_PRODUCT_TYPE_LENGTH 8              // chars
-#define SPS30_SERIAL_NUMBER_LENGTH 32            // chars
-
-/* --- Start Measurement Command Settings --- */
-
-#define SPS30_I2C_FLOAT 0x03, 0x00, 0xAC  // big-endian IEEE754 float
-#define SPS30_I2C_UINT16 0x05, 0x00, 0xF6 // big-endian unsigned 16-bit integer
-
-/* --- Commands --- */
-
-#define SPS30_I2C_CMD_START_MEASUREMENT 0x00, 0x10
-#define SPS30_I2C_CMD_START_MEASUREMENT_FLOAT SPS30_I2C_CMD_START_MEASUREMENT, SPS30_I2C_FLOAT
-#define SPS30_I2C_CMD_START_MEASUREMENT_UINT16 SPS30_I2C_CMD_START_MEASUREMENT, SPS30_I2C_UINT16
-#define SPS30_I2C_CMD_STOP_MEASUREMENT 0x01, 0x04
-#define SPS30_I2C_CMD_READ_DATA_READY_FLAG 0x02, 0x02
-#define SPS30_I2C_CMD_READ_MEASURED_VALUES 0x03, 0x00
-#define SPS30_I2C_CMD_SLEEP 0x10, 0x01  // version >= 2.0
-#define SPS30_I2C_CMD_WAKEUP 0x11, 0x03 // version >= 2.0
-#define SPS30_I2C_CMD_START_FAN_CLEANING 0x56, 0x07
-#define SPS30_I2C_CMD_READ_WRITE_AUTO_CLEANING_INTERVAL 0x80, 0x04
-#define SPS30_I2C_CMD_READ_PRODUCT_TYPE 0xD0, 0x02
-#define SPS30_I2C_CMD_READ_SERIAL_NUMBER 0xD0, 0x33
-#define SPS30_I2C_CMD_READ_VERSION 0xD1, 0x00
-#define SPS30_I2C_CMD_READ_DEVICE_STATUS_REGISTER 0xD2, 0x06  // version >= 2.2
-#define SPS30_I2C_CMD_CLEAR_DEVICE_STATUS_REGISTER 0xD2, 0x10 // version >= 2.0
-#define SPS30_I2C_CMD_RESET 0xD3, 0x04
 
 /* --- Function pointers --- */
 // Target functions must return int8_t error code, 0 is the only accepted success value
@@ -124,7 +100,7 @@ typedef struct Sps30Device
 {
     sps30_i2c_write_t i2c_write;
     sps30_i2c_read_t i2c_read;
-    sps30_calculate_crc_t calculate_crc; // If NULL, internal SW CRC algorithm will be used
+    sps30_calculate_crc_t calculate_crc; // Optional: If `NULL`, internal SW CRC algorithm will be used
 } Sps30Device;
 
 /* --- Function Prototypes --- */

@@ -4,6 +4,42 @@
 
 #include "sps30_i2c.h"
 
+/* --- Private constants --- */
+
+#define SPS30_I2C_CMD_LENGTH 2                   // bytes
+#define SPS30_I2C_CMD_START_MEASUREMENT_LENGTH 5 // bytes
+#define SPS30_I2C_PRODUCT_TYPE_LENGTH 12         // bytes
+#define SPS30_I2C_SERIAL_NUMBER_LENGTH 48        // bytes
+#define SPS30_I2C_FIRMWARE_LENGTH 3              // bytes
+#define SPS30_I2C_STATUS_FLAGS_LENGTH 6          // bytes
+#define SPS30_I2C_FLOAT_DATA_LENGTH 60           // bytes
+#define SPS30_I2C_UINT16_DATA_LENGTH 30          // bytes
+#define SPS30_CRC8_POLYNOMIAL 0x31               // x^8 + x^5 + x^4 + 1, initialization to 0xFF
+#define SPS30_PRODUCT_TYPE_LENGTH 8              // chars
+#define SPS30_SERIAL_NUMBER_LENGTH 32            // chars
+
+#define SPS30_I2C_FLOAT 0x03, 0x00, 0xAC  // big-endian IEEE754 float
+#define SPS30_I2C_UINT16 0x05, 0x00, 0xF6 // big-endian unsigned 16-bit integer
+
+#define SPS30_I2C_CMD_START_MEASUREMENT 0x00, 0x10
+#define SPS30_I2C_CMD_START_MEASUREMENT_FLOAT SPS30_I2C_CMD_START_MEASUREMENT, SPS30_I2C_FLOAT
+#define SPS30_I2C_CMD_START_MEASUREMENT_UINT16 SPS30_I2C_CMD_START_MEASUREMENT, SPS30_I2C_UINT16
+#define SPS30_I2C_CMD_STOP_MEASUREMENT 0x01, 0x04
+#define SPS30_I2C_CMD_READ_DATA_READY_FLAG 0x02, 0x02
+#define SPS30_I2C_CMD_READ_MEASURED_VALUES 0x03, 0x00
+#define SPS30_I2C_CMD_SLEEP 0x10, 0x01  // version >= 2.0
+#define SPS30_I2C_CMD_WAKEUP 0x11, 0x03 // version >= 2.0
+#define SPS30_I2C_CMD_START_FAN_CLEANING 0x56, 0x07
+#define SPS30_I2C_CMD_READ_WRITE_AUTO_CLEANING_INTERVAL 0x80, 0x04
+#define SPS30_I2C_CMD_READ_PRODUCT_TYPE 0xD0, 0x02
+#define SPS30_I2C_CMD_READ_SERIAL_NUMBER 0xD0, 0x33
+#define SPS30_I2C_CMD_READ_VERSION 0xD1, 0x00
+#define SPS30_I2C_CMD_READ_DEVICE_STATUS_REGISTER 0xD2, 0x06  // version >= 2.2
+#define SPS30_I2C_CMD_CLEAR_DEVICE_STATUS_REGISTER 0xD2, 0x10 // version >= 2.0
+#define SPS30_I2C_CMD_RESET 0xD3, 0x04
+
+/* --- Private macros --- */
+
 /**
  * Error-checking macro: if `expr` is not `SPS30_SUCCESS`, this macro returns `expr`,
  * exiting the function where this macro was used immediately.
@@ -39,6 +75,8 @@ static uint8_t sps30_calculate_crc8(uint8_t data[2]);
 static Sps30Status sps30_check_device(Sps30Device *device);
 static float sps30_convert_bytes_to_float(uint8_t bytes[4]);
 
+/* --- Function definitions --- */
+
 /**
  * @brief Starts the measurement on the SPS30 sensor.
  *
@@ -59,8 +97,7 @@ static float sps30_convert_bytes_to_float(uint8_t bytes[4]);
  */
 Sps30Status sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_format)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     uint8_t tx_data[SPS30_I2C_CMD_START_MEASUREMENT_LENGTH];
     if (data_format == SPS30_FLOAT)
@@ -91,8 +128,7 @@ Sps30Status sps30_start_measurement(Sps30Device *device, Sps30DataFormat data_fo
  */
 Sps30Status sps30_stop_measurement(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0) // TODO: utilize CHECK_STATUS macro
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_STOP_MEASUREMENT}, SPS30_I2C_CMD_LENGTH) != 0)
         return SPS30_I2C_ERROR;
@@ -116,8 +152,7 @@ Sps30Status sps30_stop_measurement(Sps30Device *device)
  */
 Sps30Status sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(data_ready);
 
     uint8_t rx_data[3];
@@ -152,8 +187,7 @@ Sps30Status sps30_read_data_ready_flag(Sps30Device *device, bool *data_ready)
  */
 Sps30Status sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData *data)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(data);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_MEASURED_VALUES}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -211,8 +245,7 @@ Sps30Status sps30_read_measured_values_float(Sps30Device *device, Sps30FloatData
  */
 Sps30Status sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Data *data)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(data);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_MEASURED_VALUES}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -265,8 +298,7 @@ Sps30Status sps30_read_measured_values_uint16(Sps30Device *device, Sps30Uint16Da
  */
 Sps30Status sps30_sleep(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_SLEEP}, SPS30_I2C_CMD_LENGTH) != 0)
         return SPS30_I2C_ERROR;
@@ -289,8 +321,7 @@ Sps30Status sps30_sleep(Sps30Device *device)
  */
 Sps30Status sps30_wake_up(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     // Send wake-up command twice (first command enables I2C interface, but is ignored)
     for (uint8_t i = 0; i < 2; i++)
@@ -316,8 +347,7 @@ Sps30Status sps30_wake_up(Sps30Device *device)
  */
 Sps30Status sps30_start_fan_cleaning(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_START_FAN_CLEANING}, SPS30_I2C_CMD_LENGTH) != 0)
         return SPS30_I2C_ERROR;
@@ -339,8 +369,7 @@ Sps30Status sps30_start_fan_cleaning(Sps30Device *device)
  */
 Sps30Status sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *interval)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(interval);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_WRITE_AUTO_CLEANING_INTERVAL}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -372,8 +401,7 @@ Sps30Status sps30_read_auto_cleaning_interval(Sps30Device *device, uint32_t *int
  */
 Sps30Status sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t interval)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     uint8_t tx_data[6];
     tx_data[0] = (interval >> 24) & 0xFF;
@@ -410,8 +438,7 @@ Sps30Status sps30_set_auto_cleaning_interval(Sps30Device *device, uint32_t inter
  */
 Sps30Status sps30_read_product_type(Sps30Device *device, char *product_type)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(product_type);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_PRODUCT_TYPE}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -461,8 +488,7 @@ Sps30Status sps30_read_product_type(Sps30Device *device, char *product_type)
  */
 Sps30Status sps30_read_serial_number(Sps30Device *device, char *serial_number)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(serial_number);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_SERIAL_NUMBER}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -508,8 +534,7 @@ Sps30Status sps30_read_serial_number(Sps30Device *device, char *serial_number)
  */
 Sps30Status sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersion *version)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(version);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_VERSION}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -543,8 +568,7 @@ Sps30Status sps30_read_firmware_version(Sps30Device *device, Sps30FirmwareVersio
  */
 Sps30Status sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags *status_flags)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
     SPS30_CHECK_NULL(status_flags);
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_READ_DEVICE_STATUS_REGISTER}, SPS30_I2C_CMD_LENGTH) != 0)
@@ -582,8 +606,7 @@ Sps30Status sps30_read_device_status_flags(Sps30Device *device, Sps30StatusFlags
  */
 Sps30Status sps30_clear_device_status_flags(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_CLEAR_DEVICE_STATUS_REGISTER}, SPS30_I2C_CMD_LENGTH) != 0)
         return SPS30_I2C_ERROR;
@@ -607,8 +630,7 @@ Sps30Status sps30_clear_device_status_flags(Sps30Device *device)
  */
 Sps30Status sps30_reset(Sps30Device *device)
 {
-    if (sps30_check_device(device) != 0)
-        return SPS30_POINTER_NULL;
+    SPS30_CHECK_STATUS(sps30_check_device(device));
 
     if (device->i2c_write(SPS30_I2C_ADDRESS, (uint8_t[]){SPS30_I2C_CMD_RESET}, SPS30_I2C_CMD_LENGTH) != 0)
         return SPS30_I2C_ERROR;
@@ -699,14 +721,15 @@ static uint8_t sps30_calculate_crc8(uint8_t data[2])
  * @brief Checks whether the provided `Sps30Device` struct contains valid pointers.
  *
  * Returns -1 if the `device`pointer is NULL, or if the `i2c_write` or `i2c_read`
- * functions are `NULL`.
+ * function pointers are `NULL`.
  *
  * WARNING: This function does not check whether the function pointers are
  * pointing to valid functions.
  *
  * @param[in] device The `Sps30Device` struct to be checked.
  *
- * @return 0 if the struct pointers are valid, -1 otherwise.
+ * @retval `SPS30_SUCCESS` The `Sps30Device` struct pointers are valid.
+ * @retval `SPS30_POINTER_NULL` One of the pointers is `NULL`.
  */
 static Sps30Status sps30_check_device(Sps30Device *device)
 {

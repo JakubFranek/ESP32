@@ -51,9 +51,9 @@ typedef struct Sgp41Device
 {
     sgp41_i2c_write_t i2c_write;
     sgp41_i2c_read_t i2c_read;
-    sgp41_calculate_crc_t calculate_crc; // If NULL, internal SW CRC algorithm will be used
-    GasIndexAlgorithmParams gia_voc;     // Do not initialize, leave as NULL
-    GasIndexAlgorithmParams gia_nox;     // Do not initialize, leave as NULL
+    sgp41_calculate_crc_t calculate_crc; // Optional: If `NULL`, internal SW CRC algorithm will be used
+    GasIndexAlgorithmParams gia_voc;     // Do not initialize, leave as `NULL`
+    GasIndexAlgorithmParams gia_nox;     // Do not initialize, leave as `NULL`
 } Sgp41Device;
 
 /* --- Public functions --- */
