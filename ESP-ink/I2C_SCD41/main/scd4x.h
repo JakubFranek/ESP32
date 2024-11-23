@@ -1,7 +1,18 @@
+/**
+ * @file scd4x.h
+ * @author Jakub Franek (https://github.com/JakubFranek)
+ * @brief SCD4x I2C driver
+ *
+ * How to use this driver:
+ * 1. Include this header file in your code.
+ * 2. Create an instance of `Scd4xDevice` and initialize it with the required function pointers.
+ * 3. Call the driver functions as desired (typical first call is `scd4x_start_periodic_measurement`).
+ */
+
 #ifndef __SCD4X_I2C_H__
 #define __SCD4X_I2C_H__
 
-#include <stdint.h>
+#include <stdint.h> // define uint8_t, uint16_t etc.
 
 /* --- Public constants --- */
 
@@ -46,7 +57,7 @@ typedef struct Scd4xDevice
     scd4x_i2c_write_t i2c_write;
     scd4x_i2c_read_t i2c_read;
     scd4x_delay_ms_t delay_ms;
-    scd4x_calculate_crc_t calculate_crc; // If NULL, internal SW CRC algorithm will be used
+    scd4x_calculate_crc_t calculate_crc; // Optional: If NULL, internal SW CRC algorithm will be used
 } Scd4xDevice;
 
 /* --- SCD4x functions --- */
@@ -54,10 +65,10 @@ typedef struct Scd4xDevice
 Scd4xStatus scd4x_start_periodic_measurement(Scd4xDevice *device);
 Scd4xStatus scd4x_read_measurement(Scd4xDevice *device, Scd4xData *data);
 Scd4xStatus scd4x_stop_periodic_measurement(Scd4xDevice *device);
-Scd4xStatus scd4x_set_temperature_offset(Scd4xDevice *device, float offset);
-Scd4xStatus scd4x_get_temperature_offset(Scd4xDevice *device, float *offset);
-Scd4xStatus scd4x_set_sensor_altitude(Scd4xDevice *device, uint16_t altitude);
-Scd4xStatus scd4x_get_sensor_altitude(Scd4xDevice *device, uint16_t *altitude);
+Scd4xStatus scd4x_set_temperature_offset(Scd4xDevice *device, float offset_degC);
+Scd4xStatus scd4x_get_temperature_offset(Scd4xDevice *device, float *offset_degC);
+Scd4xStatus scd4x_set_sensor_altitude(Scd4xDevice *device, uint16_t altitude_m);
+Scd4xStatus scd4x_get_sensor_altitude(Scd4xDevice *device, uint16_t *altitude_m);
 Scd4xStatus scd4x_set_ambient_pressure(Scd4xDevice *device, uint16_t pressure_hPa);
 Scd4xStatus scd4x_get_ambient_pressure(Scd4xDevice *device, uint16_t *pressure_hPa);
 Scd4xStatus scd4x_perform_forced_recalibration(Scd4xDevice *device, uint16_t target_co2_ppm, int16_t *frc_correction);

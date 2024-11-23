@@ -49,6 +49,8 @@
 #define SCD4X_CMD_SET_AUTOMATIC_SELF_CALIBRATION_STANDARD_PERIOD 0x24, 0x4E
 #define SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_STANDARD_PERIOD 0x23, 0x4B
 
+/* --- Private macros --- */
+
 /**
  * Error-checking macro: if `expr` is not `SCD4X_SUCCESS`, this macro returns `expr`,
  * exiting the function where this macro was used immediately.
@@ -63,25 +65,14 @@
         }                            \
     } while (0)
 
-/**
- * Error-checking macro: if `expr` is `NULL`, this macro returns `SCD4X_POINTER_NULL`,
- * exiting the function where this macro was used immediately.
- */
-#define SCD4X_CHECK_NULL(expr)         \
-    do                                 \
-    {                                  \
-        if (expr == NULL)              \
-        {                              \
-            return SCD4X_POINTER_NULL; \
-        }                              \
-    } while (0)
-
 /* --- Private function prototypes --- */
 
 static Scd4xStatus scd4x_check_checksum(Scd4xDevice *device, uint8_t data[2], uint8_t checksum);
 static Scd4xStatus scd4x_calculate_checksum(Scd4xDevice *device, uint8_t data[2], uint8_t *checksum);
-static uint8_t scd4x_calculate_crc8(uint8_t data[2]);
+static uint8_t scd4x_calculate_checksum_default(uint8_t data[2]);
 static Scd4xStatus scd4x_check_device(Scd4xDevice *device);
+static Scd4xStatus scd4x_send_i2c_command(Scd4xDevice *device, uint8_t *command);
+static Scd4xStatus scd4x_receive_i2c_data(Scd4xDevice *device, uint8_t *data, uint8_t data_length);
 
 /* --- Function definitions --- */
 
@@ -102,10 +93,7 @@ static Scd4xStatus scd4x_check_device(Scd4xDevice *device);
 Scd4xStatus scd4x_start_periodic_measurement(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_START_PERIODIC_MEASUREMENT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_START_PERIODIC_MEASUREMENT});
 }
 
 /**
@@ -120,23 +108,19 @@ Scd4xStatus scd4x_start_periodic_measurement(Scd4xDevice *device)
  */
 Scd4xStatus scd4x_read_measurement(Scd4xDevice *device, Scd4xData *data)
 {
-    SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_READ_MEASUREMENT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_READ_MEASUREMENT}));
 
     device->delay_ms(1);
 
-    uint8_t data_buf[SCD4X_MEASUREMENT_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, data_buf, SCD4X_MEASUREMENT_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    uint8_t rx_data[SCD4X_MEASUREMENT_LENGTH];
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_MEASUREMENT_LENGTH));
 
     for (int i = 0; i < SCD4X_MEASUREMENT_LENGTH; i = i + 3)
-        SCD4X_CHECK_STATUS(scd4x_check_checksum(device, (uint8_t[]){data_buf[i], data_buf[i + 1]}, data_buf[i + 2]));
+        SCD4X_CHECK_STATUS(scd4x_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
 
-    data->co2 = data_buf[0] << 8 | data_buf[1];
-    data->temperature = ((4375 * (int32_t)(data_buf[3] << 8 | data_buf[4])) >> 14) - 4500;
-    data->relative_humidity = ((2500 * (uint32_t)(data_buf[6] << 8 | data_buf[7])) >> 14);
+    data->co2 = rx_data[0] << 8 | rx_data[1];
+    data->temperature = ((4375 * (int32_t)(rx_data[3] << 8 | rx_data[4])) >> 14) - 4500;
+    data->relative_humidity = ((2500 * (uint32_t)(rx_data[6] << 8 | rx_data[7])) >> 14);
 
     return SCD4X_SUCCESS;
 }
@@ -155,10 +139,7 @@ Scd4xStatus scd4x_read_measurement(Scd4xDevice *device, Scd4xData *data)
 Scd4xStatus scd4x_stop_periodic_measurement(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_STOP_PERIODIC_MEASUREMENT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_STOP_PERIODIC_MEASUREMENT});
 }
 
 /**
@@ -211,15 +192,12 @@ Scd4xStatus scd4x_set_temperature_offset(Scd4xDevice *device, float offset_degC)
 Scd4xStatus scd4x_get_temperature_offset(Scd4xDevice *device, float *offset_degC)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_TEMPERATURE_OFFSET}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_TEMPERATURE_OFFSET}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -246,13 +224,13 @@ Scd4xStatus scd4x_get_temperature_offset(Scd4xDevice *device, float *offset_degC
  * @retval `SCD4X_POINTER_NULL` The `device` pointer is `NULL`.
  * @retval `SCD4X_CRC_FAILURE` CRC calculation failed.
  */
-Scd4xStatus scd4x_set_sensor_altitude(Scd4xDevice *device, uint16_t altitude)
+Scd4xStatus scd4x_set_sensor_altitude(Scd4xDevice *device, uint16_t altitude_m)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
 
     uint8_t tx_data[SCD4X_SETTING_LENGTH];
-    tx_data[0] = altitude >> 8;
-    tx_data[1] = altitude & 0xFF;
+    tx_data[0] = altitude_m >> 8;
+    tx_data[1] = altitude_m & 0xFF;
     SCD4X_CHECK_STATUS(scd4x_calculate_checksum(device, tx_data, &tx_data[2]));
 
     if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_SET_SENSOR_ALTITUDE, tx_data[0], tx_data[1], tx_data[2]},
@@ -273,22 +251,19 @@ Scd4xStatus scd4x_set_sensor_altitude(Scd4xDevice *device, uint16_t altitude)
  * @retval `SCD4X_POINTER_NULL` The `device` or `altitude` pointer is `NULL`.
  * @retval `SCD4X_CRC_FAILURE` CRC verification failed.
  */
-Scd4xStatus scd4x_get_sensor_altitude(Scd4xDevice *device, uint16_t *altitude)
+Scd4xStatus scd4x_get_sensor_altitude(Scd4xDevice *device, uint16_t *altitude_m)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_SENSOR_ALTITUDE}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SENSOR_ALTITUDE}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
-    *altitude = rx_data[0] << 8 | rx_data[1];
+    *altitude_m = rx_data[0] << 8 | rx_data[1];
     return SCD4X_SUCCESS;
 }
 
@@ -339,15 +314,12 @@ Scd4xStatus scd4x_set_ambient_pressure(Scd4xDevice *device, uint16_t pressure_hP
 Scd4xStatus scd4x_get_ambient_pressure(Scd4xDevice *device, uint16_t *pressure_hPa)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_SET_AMBIENT_PRESSURE}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SET_AMBIENT_PRESSURE}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -395,8 +367,7 @@ Scd4xStatus scd4x_perform_forced_recalibration(Scd4xDevice *device, uint16_t tar
     device->delay_ms(400);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -453,15 +424,12 @@ Scd4xStatus scd4x_set_automatic_self_calibration_enabled(Scd4xDevice *device, bo
 Scd4xStatus scd4x_get_automatic_self_calibration_enabled(Scd4xDevice *device, bool *enabled)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_ENABLED}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_ENABLED}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -523,15 +491,12 @@ Scd4xStatus scd4x_set_automatic_self_calibration_target(Scd4xDevice *device, uin
 Scd4xStatus scd4x_get_automatic_self_calibration_target(Scd4xDevice *device, uint16_t *target_co2_ppm)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_TARGET}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_TARGET}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -556,11 +521,7 @@ Scd4xStatus scd4x_get_automatic_self_calibration_target(Scd4xDevice *device, uin
 Scd4xStatus scd4x_start_low_power_periodic_measurement(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_START_LOW_POWER_PERIODIC_MEASUREMENT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_START_LOW_POWER_PERIODIC_MEASUREMENT});
 }
 
 /**
@@ -577,15 +538,12 @@ Scd4xStatus scd4x_start_low_power_periodic_measurement(Scd4xDevice *device)
 Scd4xStatus scd4x_get_data_ready_status(Scd4xDevice *device, bool *ready)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_DATA_READY_STATUS}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_DATA_READY_STATUS}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -613,11 +571,7 @@ Scd4xStatus scd4x_get_data_ready_status(Scd4xDevice *device, bool *ready)
 Scd4xStatus scd4x_persist_settings(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_PERSIST_SETTINGS}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_PERSIST_SETTINGS});
 }
 
 /**
@@ -634,15 +588,12 @@ Scd4xStatus scd4x_persist_settings(Scd4xDevice *device)
 Scd4xStatus scd4x_get_serial_number(Scd4xDevice *device, uint64_t *serial_number)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_SERIAL_NUMBER}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SERIAL_NUMBER}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SERIAL_NUMBER_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SERIAL_NUMBER_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SERIAL_NUMBER_LENGTH));
 
     device->delay_ms(1);
 
@@ -680,15 +631,12 @@ Scd4xStatus scd4x_get_serial_number(Scd4xDevice *device, uint64_t *serial_number
 Scd4xStatus scd4x_perform_self_test(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_PERFORM_SELF_TEST}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_PERFORM_SELF_TEST}));
 
     device->delay_ms(10000);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -715,11 +663,7 @@ Scd4xStatus scd4x_perform_self_test(Scd4xDevice *device)
 Scd4xStatus scd4x_perform_factory_reset(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_PERFORM_FACTORY_RESET}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_PERFORM_FACTORY_RESET});
 }
 
 /**
@@ -736,11 +680,7 @@ Scd4xStatus scd4x_perform_factory_reset(Scd4xDevice *device)
 Scd4xStatus scd4x_reinit(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_REINIT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_REINIT});
 }
 
 /**
@@ -758,16 +698,12 @@ Scd4xStatus scd4x_reinit(Scd4xDevice *device)
 Scd4xStatus scd4x_get_sensor_variant(Scd4xDevice *device, Scd4xSensorVariant *variant)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_SENSOR_VARIANT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SENSOR_VARIANT}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -799,11 +735,7 @@ Scd4xStatus scd4x_get_sensor_variant(Scd4xDevice *device, Scd4xSensorVariant *va
 Scd4xStatus scd41_measure_single_shot(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_MEASURE_SINGLE_SHOT}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_MEASURE_SINGLE_SHOT});
 }
 
 /**
@@ -825,11 +757,7 @@ Scd4xStatus scd41_measure_single_shot(Scd4xDevice *device)
 Scd4xStatus scd41_measure_single_shot_rht_only(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_MEASURE_SINGLE_SHOT_RHT_ONLY}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_MEASURE_SINGLE_SHOT_RHT_ONLY});
 }
 
 /**
@@ -848,11 +776,7 @@ Scd4xStatus scd41_measure_single_shot_rht_only(Scd4xDevice *device)
 Scd4xStatus scd41_power_down(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_POWER_DOWN}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
-
-    return SCD4X_SUCCESS;
+    return scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_POWER_DOWN});
 }
 
 /**
@@ -871,7 +795,7 @@ Scd4xStatus scd41_wake_up(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
 
-    // The sensor does not acknowledge the wake up command
+    // The sensor does not acknowledge the wake up command, send it blind
     device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_WAKE_UP}, SCD4X_I2C_CMD_LENGTH);
 
     return SCD4X_SUCCESS;
@@ -931,15 +855,12 @@ Scd4xStatus scd41_set_automatic_self_calibration_initial_period(Scd4xDevice *dev
 Scd4xStatus scd41_get_automatic_self_calibration_initial_period(Scd4xDevice *device, uint16_t *period_4hrs)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_INITIAL_PERIOD}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_INITIAL_PERIOD}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -994,15 +915,12 @@ Scd4xStatus scd41_set_automatic_self_calibration_standard_period(Scd4xDevice *de
 Scd4xStatus scd41_get_automatic_self_calibration_standard_period(Scd4xDevice *device, uint16_t *period_4hrs)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
-
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_STANDARD_PERIOD}, SCD4X_I2C_CMD_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_STANDARD_PERIOD}));
 
     device->delay_ms(1);
 
     uint8_t rx_data[SCD4X_SETTING_LENGTH];
-    if (device->i2c_read(SCD4X_I2C_ADDRESS, rx_data, SCD4X_SETTING_LENGTH) != 0)
-        return SCD4X_I2C_ERROR;
+    SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SETTING_LENGTH));
 
     SCD4X_CHECK_STATUS(scd4x_check_checksum(device, rx_data, rx_data[2]));
 
@@ -1058,7 +976,7 @@ static Scd4xStatus scd4x_calculate_checksum(Scd4xDevice *device, uint8_t data[2]
             return SCD4X_CRC_FAILURE;
     }
     else
-        *checksum = scd4x_calculate_crc8(data);
+        *checksum = scd4x_calculate_checksum_default(data);
 
     return SCD4X_SUCCESS;
 }
@@ -1074,7 +992,7 @@ static Scd4xStatus scd4x_calculate_checksum(Scd4xDevice *device, uint8_t data[2]
  *
  * @return The calculated CRC-8 checksum.
  */
-static uint8_t scd4x_calculate_crc8(uint8_t data[2])
+static uint8_t scd4x_calculate_checksum_default(uint8_t data[2])
 {
     uint8_t crc = SCD4X_CRC8_INITIAL_VALUE;
     for (int i = 0; i < 2; i++)
@@ -1110,5 +1028,40 @@ static Scd4xStatus scd4x_check_device(Scd4xDevice *device)
         return SCD4X_POINTER_NULL;
     if (device->i2c_write == NULL || device->i2c_read == NULL || device->delay_ms == NULL)
         return SCD4X_POINTER_NULL;
+    return SCD4X_SUCCESS;
+}
+
+/**
+ * @brief Sends an I2C command to the sensor.
+ *
+ * @param[in] device The `Scd4xDevice` struct containing the I2C functions.
+ * @param[in] command The command byte array to be sent.
+ *
+ * @retval `SCD4X_SUCCESS` The command was sent to the device.
+ * @retval `SCD4X_I2C_ERROR` An I2C communication error occurred.
+ * @retval `SCD4X_POINTER_NULL` The `device` pointer is `NULL`.
+ */
+static Scd4xStatus scd4x_send_i2c_command(Scd4xDevice *device, uint8_t *command)
+{
+    if (device->i2c_write(SCD4X_I2C_ADDRESS, command, SCD4X_I2C_CMD_LENGTH) != 0)
+        return SCD4X_I2C_ERROR;
+
+    return SCD4X_SUCCESS;
+}
+
+/**
+ * @brief Receives data from the sensor via I2C.
+ *
+ * @param[in] device The `Scd4xDevice` struct containing the I2C read function.
+ * @param[out] data A pointer to the buffer where the received data will be stored.
+ * @param[in] data_length The number of bytes to read from the sensor.
+ *
+ * @retval `SCD4X_SUCCESS` The data was successfully received.
+ * @retval `SCD4X_I2C_ERROR` An I2C communication error occurred.
+ */
+static Scd4xStatus scd4x_receive_i2c_data(Scd4xDevice *device, uint8_t *data, uint8_t data_length)
+{
+    if (device->i2c_read(SCD4X_I2C_ADDRESS, data, data_length) != 0)
+        return SCD4X_I2C_ERROR;
     return SCD4X_SUCCESS;
 }
