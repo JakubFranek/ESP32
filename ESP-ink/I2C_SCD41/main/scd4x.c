@@ -595,8 +595,6 @@ Scd4xStatus scd4x_get_serial_number(Scd4xDevice *device, uint64_t *serial_number
     uint8_t rx_data[SCD4X_SERIAL_NUMBER_LENGTH];
     SCD4X_CHECK_STATUS(scd4x_receive_i2c_data(device, rx_data, SCD4X_SERIAL_NUMBER_LENGTH));
 
-    device->delay_ms(1);
-
     for (uint8_t i = 0; i < SCD4X_SERIAL_NUMBER_LENGTH; i = i + 3)
         SCD4X_CHECK_STATUS(scd4x_check_checksum(device, (uint8_t[]){rx_data[i], rx_data[i + 1]}, rx_data[i + 2]));
 

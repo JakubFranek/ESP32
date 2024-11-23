@@ -1,3 +1,15 @@
+/**
+ * @file sgp41.h
+ * @author Jakub Franek (https://github.com/JakubFranek)
+ * @brief SGP41 I2C driver
+ *
+ * How to use this driver:
+ * 1. Include this header file in your code.
+ * 2. Create an instance of `Sgp41Device` and initialize it with the required function pointers.
+ * 3. Initialize the VOC and NOx gas index algorithm parameters by calling `sgp41_initialize` function.
+ * 4. Call the driver functions as desired (it is beneficial to run `sgp41_execute_conditioning` before measurements).
+ */
+
 #ifndef INC_SGP41_H_
 #define INC_SGP41_H_
 
@@ -7,27 +19,6 @@
 /* --- Constants --- */
 
 #define SGP41_I2C_ADDRESS 0x59
-#define SGP41_CRC8_POLYNOMIAL 0x31
-#define SGP41_CMD_LEN 2
-#define SGP41_TEMP_RH_DATA_LEN 6
-#define SGP41_DEF_TEMP 0x66, 0x66, 0x93
-#define SGP41_DEF_RH 0x80, 0x00, 0xA2
-
-/* --- Commands --- */
-
-#define SGP41_CMD_EXEC_COND 0x26, 0x12
-#define SGP41_CMD_MEAS_RAW 0x26, 0x19
-#define SGP41_CMD_SELF_TEST 0x28, 0x0E
-#define SGP41_CMD_HEATER_OFF 0x36, 0x15
-#define SGP41_CMD_SERIAL_NO 0x36, 0x82
-
-/* --- Command response lengths --- */
-
-#define SGP41_RSP_LEN_COND 3
-#define SGP41_RSP_LEN_MEAS_RAW 6
-#define SGP41_RSP_LEN_SELF_TEST 3
-#define SGP41_RSP_LEN_HEATER_OFF 0
-#define SGP41_RSP_LEN_SERIAL_NO 9
 
 /* --- Function pointers --- */
 // Target functions must return int8_t error code, 0 is the only accepted success value
@@ -50,24 +41,6 @@ typedef enum Sgp41Status
     SGP41_SELF_TEST_FAILURE = -7
 } Sgp41Status;
 
-typedef struct Sgp41RawData // TODO: remove checksums, always check internally
-{
-    uint8_t sraw_voc[2]; // sraw_voc[0] = msb, sraw_voc[1] = lsb
-    uint8_t crc_voc;
-    uint8_t sraw_nox[2]; // sraw_nox[0] = msb, sraw_nox[1] = lsb
-    uint8_t crc_nox;
-} Sgp41RawData;
-
-typedef struct Sgp41SerialNumber // TODO: remove checksums, always check internally
-{
-    uint16_t serial_msb;
-    uint16_t serial_mid;
-    uint16_t serial_lsb;
-    uint8_t msb_crc;
-    uint8_t mid_crc;
-    uint8_t lsb_crc;
-} Sgp41SerialNumber;
-
 typedef struct Sgp41Data
 {
     int32_t voc_index; // 0..500, average value: 100
@@ -86,17 +59,12 @@ typedef struct Sgp41Device
 /* --- Public functions --- */
 
 Sgp41Status sgp41_initialize(Sgp41Device *device);
-Sgp41Status sgp41_read_gas_indices(Sgp41Device *device, Sgp41Data *data);
-Sgp41Status sgp41_read_raw_signals(Sgp41Device *device, Sgp41RawData *raw_data);
-
 Sgp41Status sgp41_execute_conditioning(Sgp41Device *device);
 Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, float *rel_hum_pct);
-Sgp41Status sgp41_get_serial_number(Sgp41Device *device, Sgp41SerialNumber *serial_number);
+Sgp41Status sgp41_read_gas_indices(Sgp41Device *device, Sgp41Data *data);
+Sgp41Status sgp41_get_serial_number(Sgp41Device *device, uint64_t *serial_number);
 Sgp41Status sgp41_turn_heater_off(Sgp41Device *device);
 Sgp41Status sgp41_execute_self_test(Sgp41Device *device);
 Sgp41Status sgp41_evaluate_self_test(Sgp41Device *device);
-
-Sgp41Status sgp41_check_crc(Sgp41Device *device, Sgp41RawData *raw_data);
-Sgp41Status sgp41_convert_raw_data(Sgp41Device *device, Sgp41RawData *raw_data, Sgp41Data *data);
 
 #endif /* INC_SGP41_H_ */

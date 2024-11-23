@@ -29,7 +29,7 @@ i2c_master_dev_handle_t sgp41_device_handle;
 Sgp41Device sgp41_device = {
     .i2c_write = &sgp41_i2c_write,
     .i2c_read = &sgp41_i2c_read};
-Sgp41SerialNumber sgp41_serial_number;
+uint64_t sgp41_serial_number;
 Sgp41Status sgp41_status;
 Sgp41Data sgp41_data;
 
@@ -67,22 +67,22 @@ void task_measure_voc_nox(void *pvParameters)
     sgp41_status = sgp41_initialize(&sgp41_device);
 
     sgp41_status = sgp41_get_serial_number(&sgp41_device, &sgp41_serial_number);
-    printf("SGP41: Get Serial Number, status = %d, serial number: 0x%04x%04x%04x\n",
-           sgp41_status, sgp41_serial_number.serial_msb, sgp41_serial_number.serial_mid, sgp41_serial_number.serial_lsb);
+    printf("[SGP41] Get Serial Number, status = %d, serial number: %lld\n",
+           sgp41_status, sgp41_serial_number);
 
     sgp41_status = sgp41_execute_self_test(&sgp41_device);
-    printf("SGP41: Execute Self Test, status = %d\n", sgp41_status);
+    printf("[SGP41] Execute Self Test, status = %d\n", sgp41_status);
     vTaskDelay(350 / portTICK_PERIOD_MS);
     sgp41_status = sgp41_evaluate_self_test(&sgp41_device);
-    printf("SGP41: Evaluate Self Test, status = %d\n", sgp41_status);
+    printf("[SGP41] Evaluate Self Test, status = %d\n", sgp41_status);
 
     sgp41_status = sgp41_execute_conditioning(&sgp41_device);
-    printf("SGP41: Execute Conditioning, status = %d\n", sgp41_status);
+    printf("[SGP41] Execute Conditioning, status = %d\n", sgp41_status);
 
     if (sgp41_status != SGP41_SUCCESS)
     {
         sgp41_status = sgp41_turn_heater_off(&sgp41_device);
-        printf("SGP41: Turn Heater Off, status = %d\n", sgp41_status);
+        printf("[SGP41] Turn Heater Off, status = %d\n", sgp41_status);
         return;
     }
 
@@ -95,10 +95,10 @@ void task_measure_voc_nox(void *pvParameters)
         printf("Free stack: %d bytes\n", (int)uxTaskGetStackHighWaterMark2(NULL));
 
         sgp41_status = sgp41_measure_raw_signals(&sgp41_device, NULL, NULL);
-        printf("SGP41: Measure Raw Signals, status = %d\n", sgp41_status);
+        printf("[SGP41] Measure Raw Signals, status = %d\n", sgp41_status);
         vTaskDelay(55 / portTICK_PERIOD_MS);
         sgp41_status = sgp41_read_gas_indices(&sgp41_device, &sgp41_data);
-        printf("SGP41: Read Gas Indices, status = %d, voc = %d, nox = %d\n", sgp41_status, (int)sgp41_data.voc_index, (int)sgp41_data.nox_index);
+        printf("[SGP41] Read Gas Indices, status = %d, voc = %d, nox = %d\n", sgp41_status, (int)sgp41_data.voc_index, (int)sgp41_data.nox_index);
 
         xTaskDelayUntil(&x_last_wake_time, 1000 / portTICK_PERIOD_MS);
     }
