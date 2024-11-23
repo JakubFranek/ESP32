@@ -65,6 +65,19 @@
         }                            \
     } while (0)
 
+/**
+ * Error-checking macro: if `expr` is `NULL`, this macro returns `SPS30_POINTER_NULL`,
+ * exiting the function where this macro was used immediately.
+ */
+#define SCD4X_CHECK_NULL(expr)         \
+    do                                 \
+    {                                  \
+        if (expr == NULL)              \
+        {                              \
+            return SCD4X_POINTER_NULL; \
+        }                              \
+    } while (0)
+
 /* --- Private function prototypes --- */
 
 static Scd4xStatus scd4x_check_checksum(Scd4xDevice *device, uint8_t data[2], uint8_t checksum);
@@ -108,6 +121,9 @@ Scd4xStatus scd4x_start_periodic_measurement(Scd4xDevice *device)
  */
 Scd4xStatus scd4x_read_measurement(Scd4xDevice *device, Scd4xData *data)
 {
+    SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(data);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_READ_MEASUREMENT}));
 
     device->delay_ms(1);
@@ -192,6 +208,8 @@ Scd4xStatus scd4x_set_temperature_offset(Scd4xDevice *device, float offset_degC)
 Scd4xStatus scd4x_get_temperature_offset(Scd4xDevice *device, float *offset_degC)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(offset_degC);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_TEMPERATURE_OFFSET}));
 
     device->delay_ms(1);
@@ -254,6 +272,8 @@ Scd4xStatus scd4x_set_sensor_altitude(Scd4xDevice *device, uint16_t altitude_m)
 Scd4xStatus scd4x_get_sensor_altitude(Scd4xDevice *device, uint16_t *altitude_m)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(altitude_m);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SENSOR_ALTITUDE}));
 
     device->delay_ms(1);
@@ -314,6 +334,8 @@ Scd4xStatus scd4x_set_ambient_pressure(Scd4xDevice *device, uint16_t pressure_hP
 Scd4xStatus scd4x_get_ambient_pressure(Scd4xDevice *device, uint16_t *pressure_hPa)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(pressure_hPa);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SET_AMBIENT_PRESSURE}));
 
     device->delay_ms(1);
@@ -354,6 +376,7 @@ Scd4xStatus scd4x_get_ambient_pressure(Scd4xDevice *device, uint16_t *pressure_h
 Scd4xStatus scd4x_perform_forced_recalibration(Scd4xDevice *device, uint16_t target_co2_ppm, int16_t *frc_correction)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(frc_correction);
 
     uint8_t tx_data[SCD4X_SETTING_LENGTH];
     tx_data[0] = target_co2_ppm >> 8;
@@ -424,6 +447,8 @@ Scd4xStatus scd4x_set_automatic_self_calibration_enabled(Scd4xDevice *device, bo
 Scd4xStatus scd4x_get_automatic_self_calibration_enabled(Scd4xDevice *device, bool *enabled)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(enabled);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_ENABLED}));
 
     device->delay_ms(1);
@@ -491,6 +516,8 @@ Scd4xStatus scd4x_set_automatic_self_calibration_target(Scd4xDevice *device, uin
 Scd4xStatus scd4x_get_automatic_self_calibration_target(Scd4xDevice *device, uint16_t *target_co2_ppm)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(target_co2_ppm);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_TARGET}));
 
     device->delay_ms(1);
@@ -538,6 +565,8 @@ Scd4xStatus scd4x_start_low_power_periodic_measurement(Scd4xDevice *device)
 Scd4xStatus scd4x_get_data_ready_status(Scd4xDevice *device, bool *ready)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(ready);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_DATA_READY_STATUS}));
 
     device->delay_ms(1);
@@ -588,6 +617,8 @@ Scd4xStatus scd4x_persist_settings(Scd4xDevice *device)
 Scd4xStatus scd4x_get_serial_number(Scd4xDevice *device, uint64_t *serial_number)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(serial_number);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SERIAL_NUMBER}));
 
     device->delay_ms(1);
@@ -696,6 +727,8 @@ Scd4xStatus scd4x_reinit(Scd4xDevice *device)
 Scd4xStatus scd4x_get_sensor_variant(Scd4xDevice *device, Scd4xSensorVariant *variant)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(variant);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_SENSOR_VARIANT}));
 
     device->delay_ms(1);
@@ -853,6 +886,8 @@ Scd4xStatus scd41_set_automatic_self_calibration_initial_period(Scd4xDevice *dev
 Scd4xStatus scd41_get_automatic_self_calibration_initial_period(Scd4xDevice *device, uint16_t *period_4hrs)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(period_4hrs);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_INITIAL_PERIOD}));
 
     device->delay_ms(1);
@@ -913,6 +948,8 @@ Scd4xStatus scd41_set_automatic_self_calibration_standard_period(Scd4xDevice *de
 Scd4xStatus scd41_get_automatic_self_calibration_standard_period(Scd4xDevice *device, uint16_t *period_4hrs)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+    SCD4X_CHECK_NULL(period_4hrs);
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_GET_AUTOMATIC_SELF_CALIBRATION_STANDARD_PERIOD}));
 
     device->delay_ms(1);
@@ -1018,7 +1055,8 @@ static uint8_t scd4x_calculate_checksum_default(uint8_t data[2])
  *
  * @param[in] device The `Scd4xDevice` struct to be checked.
  *
- * @return 0 if the struct pointers are valid, -1 otherwise.
+ * @retval `SCD4X_SUCCESS` The `Scd4xDevice` struct pointers are valid.
+ * @retval `SCD4X_POINTER_NULL` One of the pointers is `NULL`.
  */
 static Scd4xStatus scd4x_check_device(Scd4xDevice *device)
 {
