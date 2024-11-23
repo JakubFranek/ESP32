@@ -26,7 +26,7 @@
 /* --- Private macros --- */
 
 /**
- * Error-checking macro: if `expr` is not `SCD4X_SUCCESS`, this macro returns `expr`,
+ * Error-checking macro: if `expr` is not `SGP41_SUCCESS`, this macro returns `expr`,
  * exiting the function where this macro was used immediately.
  */
 #define SGP41_CHECK_STATUS(expr)     \
@@ -39,11 +39,25 @@
         }                            \
     } while (0)
 
+/**
+ * Error-checking macro: if `expr` is `NULL`, this macro returns `SGP41_POINTER_NULL`,
+ * exiting the function where this macro was used immediately.
+ */
+#define SGP41_CHECK_NULL(expr)         \
+    do                                 \
+    {                                  \
+        if (expr == NULL)              \
+        {                              \
+            return SGP41_POINTER_NULL; \
+        }                              \
+    } while (0)
+
 /* --- Private function prototypes --- */
 
 static Sgp41Status sgp41_check_checksum(Sgp41Device *device, uint8_t data[2], uint8_t checksum);
 static Sgp41Status sgp41_calculate_checksum(Sgp41Device *device, uint8_t data[2], uint8_t *checksum);
 static uint8_t sgp41_calculate_checksum_default(uint8_t data[2]);
+static Sgp41Status sgp41_check_device(Sgp41Device *device);
 
 /* --- Function definitions --- */
 
@@ -59,6 +73,8 @@ static uint8_t sgp41_calculate_checksum_default(uint8_t data[2]);
  */
 Sgp41Status sgp41_initialize(Sgp41Device *device)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+
     GasIndexAlgorithm_init(&device->gia_voc, GasIndexAlgorithm_ALGORITHM_TYPE_VOC);
     GasIndexAlgorithm_init(&device->gia_nox, GasIndexAlgorithm_ALGORITHM_TYPE_NOX);
     return SGP41_SUCCESS;
@@ -77,6 +93,9 @@ Sgp41Status sgp41_initialize(Sgp41Device *device)
  */
 Sgp41Status sgp41_read_gas_indices(Sgp41Device *device, Sgp41Data *data)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+    SGP41_CHECK_NULL(data);
+
     uint8_t rx_data[6];
 
     if (device->i2c_read(SGP41_I2C_ADDRESS, rx_data, SGP41_RSP_LEN_MEAS_RAW) != 0)
@@ -116,6 +135,9 @@ Sgp41Status sgp41_read_gas_indices(Sgp41Device *device, Sgp41Data *data)
  */
 Sgp41Status sgp41_get_serial_number(Sgp41Device *device, uint64_t *serial_number)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+    SGP41_CHECK_NULL(serial_number);
+
     if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SERIAL_NO}, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
 
@@ -156,6 +178,8 @@ Sgp41Status sgp41_get_serial_number(Sgp41Device *device, uint64_t *serial_number
  */
 Sgp41Status sgp41_execute_conditioning(Sgp41Device *device)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+
     uint8_t tx_data[8] = {SGP41_CMD_EXEC_COND, SGP41_DEF_RH, SGP41_DEF_TEMP};
 
     if (device->i2c_write(SGP41_I2C_ADDRESS, tx_data, SGP41_CMD_LEN) != 0)
@@ -178,6 +202,10 @@ Sgp41Status sgp41_execute_conditioning(Sgp41Device *device)
  */
 Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, float *rel_hum_pct)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+    SGP41_CHECK_NULL(temp_celsius);
+    SGP41_CHECK_NULL(rel_hum_pct);
+
     uint8_t tx_data[8] = {SGP41_CMD_MEAS_RAW, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t rel_hum_data[3] = {SGP41_DEF_RH};
     uint8_t temp_data[3] = {SGP41_DEF_TEMP};
@@ -226,6 +254,8 @@ Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, 
  */
 Sgp41Status sgp41_turn_heater_off(Sgp41Device *device)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+
     if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_HEATER_OFF}, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
     return SGP41_SUCCESS;
@@ -245,6 +275,8 @@ Sgp41Status sgp41_turn_heater_off(Sgp41Device *device)
  */
 Sgp41Status sgp41_execute_self_test(Sgp41Device *device)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+
     if (device->i2c_write(SGP41_I2C_ADDRESS, (uint8_t[]){SGP41_CMD_SELF_TEST}, SGP41_CMD_LEN) != 0)
         return SGP41_I2C_ERROR;
     return SGP41_SUCCESS;
@@ -267,6 +299,8 @@ Sgp41Status sgp41_execute_self_test(Sgp41Device *device)
  */
 Sgp41Status sgp41_evaluate_self_test(Sgp41Device *device)
 {
+    SGP41_CHECK_STATUS(sgp41_check_device(device));
+
     uint8_t rx_data[3];
     uint8_t crc_check;
 
@@ -365,4 +399,27 @@ static uint8_t sgp41_calculate_checksum_default(uint8_t data[2])
         }
     }
     return crc;
+}
+
+/**
+ * @brief Checks whether the provided `Sgp41Device` struct contains valid pointers.
+ *
+ * Returns -1 if the `device`pointer is NULL, or if the `i2c_write`, `i2c_read` or
+ * `delay_ms` function pointers are `NULL`.
+ *
+ * WARNING: This function does not check whether the function pointers are
+ * pointing to valid functions.
+ *
+ * @param[in] device The `Sgp41Device` struct to be checked.
+ *
+ * @retval `SGP41_SUCCESS` The `Sgp41Device` struct pointers are valid.
+ * @retval `SGP41_POINTER_NULL` One of the pointers is `NULL`.
+ */
+static Sgp41Status sgp41_check_device(Sgp41Device *device)
+{
+    if (device == NULL)
+        return SGP41_POINTER_NULL;
+    if (device->i2c_write == NULL || device->i2c_read == NULL)
+        return SGP41_POINTER_NULL;
+    return SGP41_SUCCESS;
 }

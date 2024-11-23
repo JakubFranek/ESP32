@@ -66,7 +66,7 @@
     } while (0)
 
 /**
- * Error-checking macro: if `expr` is `NULL`, this macro returns `SPS30_POINTER_NULL`,
+ * Error-checking macro: if `expr` is `NULL`, this macro returns `SCD4X_POINTER_NULL`,
  * exiting the function where this macro was used immediately.
  */
 #define SCD4X_CHECK_NULL(expr)         \
