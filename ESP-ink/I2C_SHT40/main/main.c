@@ -66,6 +66,10 @@ void task_sht4x(void *pvParameters)
     ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_config, &bus));
     ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &sht4x_config, &sht4x_device_handle));
 
+    sht4x_status = sht4x_request_serial_number(&sht4x_device);
+    printf("[SHT4X] Request Serial Number, status = %d\n", sht4x_status);
+    vTaskDelay(1 / portTICK_PERIOD_MS);
+
     sht4x_status = sht4x_read_serial_number(&sht4x_device, &serial_number);
     printf("[SHT4X] Read Serial Number, serial number = %ld, status = %d\n", serial_number, sht4x_status);
 

@@ -52,6 +52,10 @@ static Sht4xStatus sht4x_check_device(Sht4xDevice *device);
 /**
  * @brief Starts a measurement on the SHT4x sensor.
  *
+ * Read the measured data using `sht4x_read_measurement` function. Wait for
+ * a specified time as defined in the driver header file, depending on the
+ * measurement type.
+ *
  * @param[in] device The `Sht4xDevice` struct containing the I2C address and
  * communication functions.
  * @param[in] command One of the `Sht4xMeasurement` enum values, specifying the
@@ -106,7 +110,34 @@ Sht4xStatus sht4x_read_measurement(Sht4xDevice *device, Sht4xData *data)
 }
 
 /**
+ * @brief Requests the serial number from the SHT4x sensor.
+ *
+ * This function sends the serial number request command to the SHT4x sensor.
+ * The serial number can then be read using `sht4x_read_serial_number` after
+ * `SHT4X_SERIAL_NUMBER_PERIOD_US` delay.
+ *
+ * @param[in] device The `Sht4xDevice` struct containing the I2C address and
+ * communication functions.
+ *
+ * @retval `SHT4X_SUCCESS` The serial number request was sent successfully.
+ * @retval `SHT4X_I2C_ERROR` I2C communication error occurred.
+ * @retval `SHT4X_POINTER_NULL` The `device` pointer is `NULL`.
+ */
+Sht4xStatus sht4x_request_serial_number(Sht4xDevice *device)
+{
+	SHT4X_CHECK_STATUS(sht4x_check_device(device));
+
+	if (device->i2c_write(device->i2c_address, (uint8_t[]){SHT4X_I2C_CMD_READ_SERIAL_NUMBER}, SHT4X_I2C_CMD_LENGHT) != 0)
+		return SHT4X_I2C_ERROR;
+
+	return SHT4X_SUCCESS;
+}
+
+/**
  * @brief Reads the serial number from the SHT4x sensor.
+ *
+ * This function call must be preceded by a call to `sht4x_request_serial_number`
+ * with a minimum of `SHT4X_SERIAL_NUMBER_PERIOD_US` delay.
  *
  * @param[in] device The `Sht4xDevice` struct containing the I2C address and
  * communication functions.
@@ -122,11 +153,6 @@ Sht4xStatus sht4x_read_serial_number(Sht4xDevice *device, uint32_t *serial_numbe
 {
 	SHT4X_CHECK_STATUS(sht4x_check_device(device));
 	SHT4X_CHECK_NULL(serial_number);
-
-	if (device->i2c_write(device->i2c_address, (uint8_t[]){SHT4X_I2C_CMD_READ_SERIAL_NUMBER}, SHT4X_I2C_CMD_LENGHT) != 0)
-		return SHT4X_I2C_ERROR;
-
-	// TODO: delay is needed here
 
 	uint8_t data[SHT4X_I2C_CMD_SERIAL_NUMBER_LENGHT];
 	if (device->i2c_read(device->i2c_address, data, SHT4X_I2C_CMD_SERIAL_NUMBER_LENGHT) != 0)

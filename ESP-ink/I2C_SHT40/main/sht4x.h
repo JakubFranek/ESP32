@@ -19,6 +19,7 @@
 #define SHT4X_MEAS_HIGH_PREC_PERIOD_US 8200 // in microseconds
 #define SHT4X_MEAS_MED_PREC_PERIOD_US 4500	// in microseconds
 #define SHT4X_MEAS_LOW_PREC_PERIOD_US 1700	// in microseconds
+#define SHT4X_SERIAL_NUMBER_PERIOD_US 1000	// in microseconds
 
 /* --- Function pointers --- */
 // Target functions must return int8_t error code, 0 is the only accepted success value
@@ -31,8 +32,8 @@ typedef int8_t (*sht4x_calculate_crc_t)(const uint8_t *data, uint8_t length, uin
 
 typedef enum Sht4xI2cAddress
 {
-	SHT4X_I2C_ADDR_A = (0x44 << 0),
-	SHT4X_I2C_ADDR_B = (0x45 << 0)
+	SHT4X_I2C_ADDR_A = 0x44,
+	SHT4X_I2C_ADDR_B = 0x45
 } Sht4xI2cAddress; // 8 bit number
 
 typedef enum Sht4xMeasurement
@@ -76,6 +77,7 @@ typedef struct Sht4xDevice
 
 Sht4xStatus sht4x_start_measurement(Sht4xDevice *device, Sht4xMeasurement command);
 Sht4xStatus sht4x_read_measurement(Sht4xDevice *device, Sht4xData *data);
+Sht4xStatus sht4x_request_serial_number(Sht4xDevice *device);
 Sht4xStatus sht4x_read_serial_number(Sht4xDevice *device, uint32_t *serial_number);
 Sht4xStatus sht4x_soft_reset(Sht4xDevice *device);
 
