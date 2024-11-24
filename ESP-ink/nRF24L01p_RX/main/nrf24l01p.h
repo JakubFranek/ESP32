@@ -1,3 +1,14 @@
+/**
+ * @file nrf24l01p.h
+ * @author Jakub Franek (https://github.com/JakubFranek)
+ * @brief nRF24L01+ driver
+ *
+ * How to use this driver:
+ * // TODO: add how to - guide
+ */
+
+// TODO: move private defines elsewhere
+
 #ifndef __NRF24L01P_H__
 #define __NRF24L01P_H__
 
