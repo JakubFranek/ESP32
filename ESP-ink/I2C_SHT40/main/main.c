@@ -111,5 +111,5 @@ int8_t sht4x_i2c_read(uint8_t address, uint8_t *payload, uint8_t length)
 void print_sht4x_data(Sht4xData *data)
 {
     printf("Temperature = %f °C\n", data->temperature / 1000.0);
-    printf("Temperature = %f %%\n", data->humidity / 1000.0);
+    printf("Relative Humidity = %f %%\n", data->humidity / 1000.0);
 }

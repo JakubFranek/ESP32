@@ -101,7 +101,7 @@ Sht4xStatus sht4x_read_measurement(Sht4xDevice *device, Sht4xData *data)
 	SHT4X_CHECK_STATUS(sht4x_check_checksum(device, (uint8_t[]){rx_data[3], rx_data[4]}, rx_data[5]));
 
 	uint32_t temperature_merged = (rx_data[0] << 8) | rx_data[1];
-	uint32_t humidity_merged = (rx_data[0] << 8) | rx_data[1];
+	uint32_t humidity_merged = (rx_data[3] << 8) | rx_data[4];
 
 	data->temperature = ((21875 * temperature_merged) >> 13) - 45000;
 	data->humidity = ((15625 * humidity_merged) >> 13) - 6000;
