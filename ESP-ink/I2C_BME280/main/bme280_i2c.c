@@ -29,25 +29,25 @@ and before every conversion)*/
 /* Set to '1' when a measurement is in progress*/
 #define BME280_REG_STATUS_MEASURING (1U << 3)
 
-#define BME280_REG_CTRL_HUM_OSRS_H_POS (1U << 0)
+#define BME280_REG_CTRL_HUM_OSRS_H_POS 0
 #define BME280_REG_CTRL_HUM_OSRS_H_MASK (0b111 << 0)
-#define BME280_REG_CTRL_MEAS_MODE_POS (1U << 0)
+#define BME280_REG_CTRL_MEAS_MODE_POS 0
 #define BME280_REG_CTRL_MEAS_MODE_MASK (0b11 << 0)
-#define BME280_REG_CTRL_MEAS_OSRS_P_POS (1U << 2)
+#define BME280_REG_CTRL_MEAS_OSRS_P_POS 2
 #define BME280_REG_CTRL_MEAS_OSRS_P_MASK (0b111 << 2)
-#define BME280_REG_CTRL_MEAS_OSRS_T_POS (1U << 5)
+#define BME280_REG_CTRL_MEAS_OSRS_T_POS 5
 #define BME280_REG_CTRL_MEAS_OSRS_T_MASK (0b111 << 5)
 
 /* Enables the 3-wire SPI interface*/
 #define BME280_REG_CONFIG_SPI3W_EN (1U << 0)
 
-#define BME280_REG_CONFIG_FILTER_POS (1U << 2)
+#define BME280_REG_CONFIG_FILTER_POS 2
 #define BME280_REG_CONFIG_FILTER_MASK (0b111 << 2)
-#define BME280_REG_CONFIG_T_SB_POS (1U << 5)
+#define BME280_REG_CONFIG_T_SB_POS 5
 #define BME280_REG_CONFIG_T_SB_MASK (0b111 << 5)
-#define BME280_REG_PRESS_XLSB_POS (1U << 4)
+#define BME280_REG_PRESS_XLSB_POS 4
 #define BME280_REG_PRESS_XLSB_MASK (0b1111 << 4)
-#define BME280_REG_TEMP_XLSB_POS (1U << 4)
+#define BME280_REG_TEMP_XLSB_POS 4
 #define BME280_REG_TEMP_XLSB_MASK (0b1111 << 4)
 
 /* --- Private macros --- */
@@ -109,20 +109,48 @@ static Bme280Status bme280_check_device(Bme280Device *device);
 static Bme280Status bme280_write_i2c_register(Bme280Device *device, uint8_t address, uint8_t value);
 static Bme280Status bme280_read_i2c_register(Bme280Device *device, uint8_t address, uint8_t *data, uint8_t data_length);
 static Bme280Status bme280_read_calibration_data(Bme280Device *device);
+static int32_t bme280_compensate_T_int32(Bme280Device *device, int32_t adc_T);
+static uint32_t bme280_compensate_P_int64(Bme280Device *device, int32_t adc_P);
+static uint32_t bme280_compensate_H_int32(Bme280Device *device, int32_t adc_H);
 
 /* --- Function definitions --- */
 
+/**
+ * @brief Initializes the BME280 sensor.
+ *
+ * This function reads and stores the calibration data and sets
+ * the configuration of the sensor as specified in `device->config`.
+ *
+ * @param[in] device The `Bme280Device` struct containing the sensor's I2C
+ *                   functions and address.
+ *
+ * @retval `BME280_SUCCESS` The initialization was successful.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` pointer is `NULL`.
+ */
 Bme280Status bme280_init(Bme280Device *device)
 {
     BME280_CHECK_STATUS(bme280_check_device(device));
 
-    BME280_CHECK_STATUS(bme280_write_i2c_register(device, BME280_REG_RESET_ADDRESS, BME280_RESET_VALUE));
     BME280_CHECK_STATUS(bme280_read_calibration_data(device));
     BME280_CHECK_STATUS(bme280_set_config(device, &device->config));
 
     return BME280_SUCCESS;
 }
 
+/**
+ * @brief Resets the BME280 sensor.
+ *
+ * This function sends a reset command to the BME280 sensor via I2C,
+ * which performs a soft reset of the sensor.
+ *
+ * @param[in] device The `Bme280Device` struct containing the sensor's
+ *                   I2C functions and address.
+ *
+ * @retval `BME280_SUCCESS` The sensor was successfully reset.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` pointer is `NULL`.
+ */
 Bme280Status bme280_reset(Bme280Device *device)
 {
     BME280_CHECK_STATUS(bme280_check_device(device));
@@ -130,6 +158,22 @@ Bme280Status bme280_reset(Bme280Device *device)
     return BME280_SUCCESS;
 }
 
+/**
+ * @brief Sets the configuration of the BME280 sensor.
+ *
+ * This function sets the temperature, pressure, and humidity
+ * oversampling rates, standby time, filter, and SPI 3-wire interface mode of the
+ * BME280 sensor.
+ *
+ * @param[in] device The `Bme280Device` struct containing the sensor's I2C
+ *                   functions and address.
+ * @param[in] config The `Bme280Config` struct containing the desired
+ *                   configuration of the sensor.
+ *
+ * @retval `BME280_SUCCESS` The configuration was successfully set.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` or `config` pointer is `NULL`.
+ */
 Bme280Status bme280_set_config(Bme280Device *device, Bme280Config *config)
 {
     BME280_CHECK_STATUS(bme280_check_device(device));
@@ -156,69 +200,186 @@ Bme280Status bme280_set_config(Bme280Device *device, Bme280Config *config)
     return BME280_SUCCESS;
 }
 
-// Returns temperature in DegC, resolution is 0.01 DegC. Output value of “5123” equals 51.23 DegC.
-// t_fine carries fine temperature as global value
-BME280_S32_t BME280_compensate_T_int32(BME280_S32_t adc_T)
+/**
+ * @brief Sets the operation mode of the BME280 sensor.
+ *
+ * @param[in] device The `Bme280Device` struct containing the sensor's I2C
+ *                   functions and address.
+ * @param[in] mode The desired operation mode of the sensor, specified as a
+ *                 `Bme280Mode` enum value.
+ *
+ * @retval `BME280_SUCCESS` The mode was successfully set.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` pointer is `NULL`.
+ */
+Bme280Status bme280_set_mode(Bme280Device *device, Bme280Mode mode)
 {
-    BME280_S32_t var1, var2, T;
-    var1 = ((((adc_T >> 3) – ((BME280_S32_t)dig_T1 << 1))) * ((BME280_S32_t)dig_T2)) >> 11;
-    var2 = (((((adc_T >> 4) – ((BME280_S32_t)dig_T1)) * ((adc_T >> 4) – ((BME280_S32_t)dig_T1))) >> 12) *
-            ((BME280_S32_t)dig_T3)) >>
+    BME280_CHECK_STATUS(bme280_check_device(device));
+
+    uint8_t ctrl_meas_value = 0;
+    BME280_CHECK_STATUS(bme280_read_i2c_register(device, BME280_REG_CTRL_MEAS_ADDRESS, &ctrl_meas_value, 1));
+    SET_FIELD(ctrl_meas_value, mode, BME280_REG_CTRL_MEAS_MODE_MASK, BME280_REG_CTRL_MEAS_MODE_POS);
+    BME280_CHECK_STATUS(bme280_write_i2c_register(device, BME280_REG_CTRL_MEAS_ADDRESS, ctrl_meas_value));
+
+    return BME280_SUCCESS;
+}
+
+/**
+ * @brief Queries the sensor if a measurement is in progress.
+ *
+ * @param[in] device The `Bme280Device` struct containing the I2C functions and
+ *                    the address of the sensor.
+ * @param[out] measuring A boolean indicating whether a measurement is in progress.
+ *
+ * @retval `BME280_SUCCESS` The status was successfully read.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` or `measuring` pointer is `NULL`.
+ */
+Bme280Status bme280_is_measuring(Bme280Device *device, bool *is_measuring)
+{
+    BME280_CHECK_STATUS(bme280_check_device(device));
+    uint8_t status = 0;
+    BME280_CHECK_STATUS(bme280_read_i2c_register(device, BME280_REG_STATUS_ADDRESS, &status, 1));
+
+    *is_measuring = (status & BME280_REG_STATUS_MEASURING) != 0;
+
+    return BME280_SUCCESS;
+}
+
+/**
+ * @brief Reads raw sensor data and converts it to human-readable measurements.
+ *
+ * This function retrieves the raw temperature, pressure, and humidity data from the
+ * BME280 sensor via I2C and compensates these values using the calibration data
+ * stored in the `Bme280Device` struct. The compensated values are stored in the
+ * `Bme280Data` struct.
+ *
+ * @param[in] device The `Bme280Device` struct containing the sensor configuration
+ *                   and calibration data.
+ * @param[out] data The `Bme280Data` struct where the compensated temperature,
+ *                  pressure, and humidity data will be stored.
+ *
+ * @retval `BME280_SUCCESS` The data was successfully read and compensated.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` or `data` pointer is `NULL`.
+ */
+Bme280Status bme280_read_measurement(Bme280Device *device, Bme280Data *data)
+{
+    BME280_CHECK_STATUS(bme280_check_device(device));
+
+    int32_t adc_T, adc_P, adc_H;
+    uint8_t rx_data[8];
+    BME280_CHECK_STATUS(bme280_read_i2c_register(device, BME280_REG_PRESS_MSB_ADDRESS, rx_data, 8));
+
+    adc_P = rx_data[0] << 12 | rx_data[1] << 4 | rx_data[2] >> 4;
+    adc_T = rx_data[3] << 12 | rx_data[4] << 4 | rx_data[5] >> 4;
+    adc_H = rx_data[6] << 8 | rx_data[7];
+
+    data->temperature = bme280_compensate_T_int32(device, adc_T); // must be calculated first to update `t_fine`
+    uint32_t pressure_256 = bme280_compensate_P_int64(device, adc_P);
+    uint32_t humidity_1024 = bme280_compensate_H_int32(device, adc_H);
+
+    data->pressure = (10 * pressure_256) / 256;
+    data->humidity = (1000 * humidity_1024) / 1024;
+
+    return BME280_SUCCESS;
+}
+
+/**
+ * @brief Compensates the raw temperature readings from the sensor.
+ *
+ * This function uses the calibration data stored in the `Bme280Device` struct
+ * to convert the raw temperature data (`adc_T`) into a compensated temperature value.
+ * The result is returned as an unsigned 32-bit integer.
+ *
+ * @param[in] device The `Bme280Device` struct containing the calibration data.
+ * @param[in] adc_T The raw temperature data read from the sensor.
+ *
+ * @return The compensated temperature value as an unsigned 32-bit integer. To convert
+ * to DegC, divide the result by 100.
+ */
+static int32_t bme280_compensate_T_int32(Bme280Device *device, int32_t adc_T)
+{
+    int32_t var1, var2, T;
+    var1 = ((((adc_T >> 3) - ((int32_t)device->calibration.dig_T1 << 1))) * ((int32_t)device->calibration.dig_T2)) >> 11;
+    var2 = (((((adc_T >> 4) - ((int32_t)device->calibration.dig_T1)) * ((adc_T >> 4) - ((int32_t)device->calibration.dig_T1))) >> 12) *
+            ((int32_t)device->calibration.dig_T3)) >>
            14;
-    t_fine = var1 + var2;
-    T = (t_fine * 5 + 128) >> 8;
+    device->calibration.t_fine = var1 + var2;
+    T = (device->calibration.t_fine * 5 + 128) >> 8;
     return T;
 }
 
-// Returns pressure in Pa as unsigned 32 bit integer in Q24.8 format (24 integer bits and 8 fractional bits).
-// Output value of “24674867” represents 24674867/256 = 96386.2 Pa = 963.862 hPa
-BME280_U32_t BME280_compensate_P_int64(BME280_S32_t adc_P)
+/**
+ * @brief Compensates the raw pressure readings from the sensor.
+ *
+ * This function uses the calibration data stored in the `Bme280Device` struct
+ * to convert the raw pressure data (`adc_P`) into a compensated pressure value.
+ * The result is returned as an unsigned 32-bit integer.
+ *
+ * @param[in] device The `Bme280Device` struct containing the calibration data.
+ * @param[in] adc_P The raw pressure data read from the sensor.
+ *
+ * @return The compensated pressure value as an unsigned 32-bit integer. To convert to
+ * Pa, divide the result by 256.
+ */
+static uint32_t bme280_compensate_P_int64(Bme280Device *device, int32_t adc_P)
 {
-    BME280_S64_t var1, var2, p;
-    var1 = ((BME280_S64_t)t_fine) – 128000;
-    var2 = var1 * var1 * (BME280_S64_t)dig_P6;
-    var2 = var2 + ((var1 * (BME280_S64_t)dig_P5) << 17);
-    var2 = var2 + (((BME280_S64_t)dig_P4) << 35);
-    var1 = ((var1 * var1 * (BME280_S64_t)dig_P3) >> 8) + ((var1 * (BME280_S64_t)dig_P2) << 12);
-    var1 = (((((BME280_S64_t)1) << 47) + var1)) * ((BME280_S64_t)dig_P1) >> 33;
+    int64_t var1, var2, p;
+    var1 = ((int64_t)device->calibration.t_fine) - 128000;
+    var2 = var1 * var1 * (int64_t)device->calibration.dig_P6;
+    var2 = var2 + ((var1 * (int64_t)device->calibration.dig_P5) << 17);
+    var2 = var2 + (((int64_t)device->calibration.dig_P4) << 35);
+    var1 = ((var1 * var1 * (int64_t)device->calibration.dig_P3) >> 8) + ((var1 * (int64_t)device->calibration.dig_P2) << 12);
+    var1 = (((((int64_t)1) << 47) + var1)) * ((int64_t)device->calibration.dig_P1) >> 33;
     if (var1 == 0)
     {
         return 0; // avoid exception caused by division by zero
     }
     p = 1048576 - adc_P;
     p = (((p << 31) - var2) * 3125) / var1;
-    var1 = (((BME280_S64_t)dig_P9) * (p >> 13) * (p >> 13)) >> 25;
-    var2 = (((BME280_S64_t)dig_P8) * p) >> 19;
-    p = ((p + var1 + var2) >> 8) + (((BME280_S64_t)dig_P7) << 4);
-    return (BME280_U32_t)p;
+    var1 = (((int64_t)device->calibration.dig_P9) * (p >> 13) * (p >> 13)) >> 25;
+    var2 = (((int64_t)device->calibration.dig_P8) * p) >> 19;
+    p = ((p + var1 + var2) >> 8) + (((int64_t)device->calibration.dig_P7) << 4);
+    return (uint32_t)p;
 }
 
-// Returns humidity in %RH as unsigned 32 bit integer in Q22.10 format (22 integer and 10 fractional bits).
-// Output value of “47445” represents 47445/1024 = 46.333 %RH
-BME280_U32_t bme280_compensate_H_int32(BME280_S32_t adc_H)
+/**
+ * @brief Compensates the raw humidity readings from the sensor.
+ *
+ * This function uses the calibration data stored in the `Bme280Device` struct
+ * to convert the raw humidity data (`adc_H`) into a compensated humidity value.
+ * The result is returned as an unsigned 32-bit integer.
+ *
+ * @param[in] device The `Bme280Device` struct containing the calibration data.
+ * @param[in] adc_H The raw humidity data read from the sensor.
+ *
+ * @return The compensated humidity value as an unsigned 32-bit integer. To convert
+ * to %RH, divide the result by 1024.
+ */
+static uint32_t bme280_compensate_H_int32(Bme280Device *device, int32_t adc_H)
 {
-    BME280_S32_t v_x1_u32r;
-    v_x1_u32r = (t_fine – ((BME280_S32_t)76800));
-    v_x1_u32r = (((((adc_H << 14) – (((BME280_S32_t)dig_H4) << 20) – (((BME280_S32_t)dig_H5) *
-                                                                      v_x1_u32r)) +
-                   ((BME280_S32_t)16384)) >>
+    int32_t v_x1_u32r;
+    v_x1_u32r = (device->calibration.t_fine - ((int32_t)76800));
+    v_x1_u32r = (((((adc_H << 14) - (((int32_t)device->calibration.dig_H4) << 20) - (((int32_t)device->calibration.dig_H5) * v_x1_u32r)) +
+                   ((int32_t)16384)) >>
                   15) *
                  (((((((v_x1_u32r *
-                        ((BME280_S32_t)dig_H6)) >>
+                        ((int32_t)device->calibration.dig_H6)) >>
                        10) *
-                      (((v_x1_u32r * ((BME280_S32_t)dig_H3)) >> 11) +
-                       ((BME280_S32_t)32768))) >>
+                      (((v_x1_u32r * ((int32_t)device->calibration.dig_H3)) >> 11) +
+                       ((int32_t)32768))) >>
                      10) +
-                    ((BME280_S32_t)2097152)) *
-                       ((BME280_S32_t)dig_H2) +
+                    ((int32_t)2097152)) *
+                       ((int32_t)device->calibration.dig_H2) +
                    8192) >>
                   14));
-    v_x1_u32r = (v_x1_u32r – (((((v_x1_u32r >> 15) * (v_x1_u32r >> 15)) >> 7) *
-                               ((BME280_S32_t)dig_H1)) >>
+    v_x1_u32r = (v_x1_u32r - (((((v_x1_u32r >> 15) * (v_x1_u32r >> 15)) >> 7) *
+                               ((int32_t)device->calibration.dig_H1)) >>
                               4));
     v_x1_u32r = (v_x1_u32r < 0 ? 0 : v_x1_u32r);
     v_x1_u32r = (v_x1_u32r > 419430400 ? 419430400 : v_x1_u32r);
-    return (BME280_U32_t)(v_x1_u32r >> 12);
+    return (uint32_t)(v_x1_u32r >> 12);
 }
 
 /**
@@ -241,7 +402,7 @@ static Bme280Status bme280_check_device(Bme280Device *device)
         return BME280_POINTER_NULL;
     if (device->i2c_write == NULL || device->i2c_read == NULL)
         return BME280_POINTER_NULL;
-    return BME280_POINTER_NULL;
+    return BME280_SUCCESS;
 }
 
 /**
@@ -280,6 +441,16 @@ static Bme280Status bme280_read_i2c_register(Bme280Device *device, uint8_t initi
     return BME280_SUCCESS;
 }
 
+/**
+ * @brief Reads and stores the calibration data from the sensor.
+ *
+ * @param[in] device The `Bme280Device` struct containing the I2C functions and
+ *                    the address of the sensor.
+ *
+ * @retval `BME280_SUCCESS` The calibration data was successfully read.
+ * @retval `BME280_I2C_ERROR` An I2C communication error occurred.
+ * @retval `BME280_POINTER_NULL` The `device` pointer is `NULL`.
+ */
 static Bme280Status bme280_read_calibration_data(Bme280Device *device)
 {
     uint8_t calibration_data_1[25];

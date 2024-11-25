@@ -104,9 +104,9 @@ typedef struct Bme280Config
 
 typedef struct Bme280Data
 {
-    int32_t temperature;
-    uint32_t pressure;
-    uint32_t humidity;
+    int32_t temperature; // 100 * degC
+    uint32_t pressure;   // 10 * Pa
+    uint32_t humidity;   // 1000 * %RH
 } Bme280Data;
 
 typedef struct Bme280Device
@@ -123,4 +123,4 @@ Bme280Status bme280_reset(Bme280Device *device);
 Bme280Status bme280_set_mode(Bme280Device *device, Bme280Mode mode);
 Bme280Status bme280_set_config(Bme280Device *device, Bme280Config *config);
 Bme280Status bme280_is_measuring(Bme280Device *device, bool *measuring);
-Bme280Status bme280_get_data(Bme280Device *device, Bme280Data *data);
+Bme280Status bme280_read_measurement(Bme280Device *device, Bme280Data *data);
