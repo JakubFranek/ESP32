@@ -83,45 +83,42 @@ Gdey075T7::Gdey075T7(EpdSpi &dio) : Adafruit_GFX(GDEY075T7_WIDTH, GDEY075T7_HEIG
 
 void Gdey075T7::initPartialUpdate()
 {
-  IO.cmd(epd_panel_setting_partial.cmd);      // panel setting
-  IO.data(epd_panel_setting_partial.data[0]); // partial update LUT from registers
+  IO.send_command(epd_panel_setting_partial.cmd);  // panel setting
+  IO.send_data(epd_panel_setting_partial.data[0]); // partial update LUT from registers
 
-  IO.cmd(0x82); // vcom_DC setting
+  IO.send_command(0x82); // vcom_DC setting
   //      (0x2C);  // -2.3V same value as in OTP
-  IO.data(0x26); // -2.0V
+  IO.send_data(0x26); // -2.0V
   //       (0x1C); // -1.5V
-  IO.cmd(0x50);  // VCOM AND DATA INTERVAL SETTING
-  IO.data(0x39); // LUTBD, N2OCP: copy new to old
-  IO.data(0x07);
+  IO.send_command(0x50); // VCOM AND DATA INTERVAL SETTING
+  IO.send_data(0x39);    // LUTBD, N2OCP: copy new to old
+  IO.send_data(0x07);
 
   // LUT Tables for partial update. Send them directly in 42 bytes chunks. In total 210 bytes
-  IO.cmd(lut_20_LUTC_partial.cmd);
-  IO.data(lut_20_LUTC_partial.data, lut_20_LUTC_partial.databytes);
+  IO.send_command(lut_20_LUTC_partial.cmd);
+  IO.send_data(lut_20_LUTC_partial.data, lut_20_LUTC_partial.databytes);
 
-  IO.cmd(lut_21_LUTWW_partial.cmd);
-  IO.data(lut_21_LUTWW_partial.data, lut_21_LUTWW_partial.databytes);
+  IO.send_command(lut_21_LUTWW_partial.cmd);
+  IO.send_data(lut_21_LUTWW_partial.data, lut_21_LUTWW_partial.databytes);
 
-  IO.cmd(lut_22_LUTKW_partial.cmd);
-  IO.data(lut_22_LUTKW_partial.data, lut_22_LUTKW_partial.databytes);
+  IO.send_command(lut_22_LUTKW_partial.cmd);
+  IO.send_data(lut_22_LUTKW_partial.data, lut_22_LUTKW_partial.databytes);
 
-  IO.cmd(lut_23_LUTWK_partial.cmd);
-  IO.data(lut_23_LUTWK_partial.data, lut_23_LUTWK_partial.databytes);
+  IO.send_command(lut_23_LUTWK_partial.cmd);
+  IO.send_data(lut_23_LUTWK_partial.data, lut_23_LUTWK_partial.databytes);
 
-  IO.cmd(lut_24_LUTKK_partial.cmd);
-  IO.data(lut_24_LUTKK_partial.data, lut_24_LUTKK_partial.databytes);
+  IO.send_command(lut_24_LUTKK_partial.cmd);
+  IO.send_data(lut_24_LUTKK_partial.data, lut_24_LUTKK_partial.databytes);
 
-  IO.cmd(lut_25_LUTBD_partial.cmd);
-  IO.data(lut_25_LUTBD_partial.data, lut_25_LUTBD_partial.databytes);
+  IO.send_command(lut_25_LUTBD_partial.cmd);
+  IO.send_data(lut_25_LUTBD_partial.data, lut_25_LUTBD_partial.databytes);
 }
 
 // Initialize the display
-void Gdey075T7::init(bool debug)
+void Gdey075T7::init()
 {
-  debug_enabled = debug;
-  if (debug_enabled)
-    printf("Gdey075T7::init(debug:%d)\n", debug);
-  // Initialize SPI at 4MHz frequency. true for debug
-  IO.init(4, false);
+  // Initialize SPI at 4MHz frequency
+  IO.initialize(4);
   fillScreen(EPD_WHITE);
   _wakeUp();
 }
@@ -141,40 +138,40 @@ void Gdey075T7::_wakeUp()
   // IMPORTANT: Some EPD controllers like to receive data byte per byte
   // So this won't work:
   // IO.data(epd_wakeup_power.data,epd_wakeup_power.databytes);
-  IO.cmd(0x01); // POWER SETTING
-  IO.data(0x07);
-  IO.data(0x07); // VGH=20V,VGL=-20V
-  IO.data(0x3f); // VDH=15V
-  IO.data(0x3f); // VDL=-15V
+  IO.send_command(0x01); // POWER SETTING
+  IO.send_data(0x07);
+  IO.send_data(0x07); // VGH=20V,VGL=-20V
+  IO.send_data(0x3f); // VDH=15V
+  IO.send_data(0x3f); // VDL=-15V
   // Enhanced display drive(Add 0x06 command)
-  IO.cmd(0x06); // Booster Soft Start
-  IO.data(0x17);
-  IO.data(0x17);
-  IO.data(0x28);
-  IO.data(0x17);
+  IO.send_command(0x06); // Booster Soft Start
+  IO.send_data(0x17);
+  IO.send_data(0x17);
+  IO.send_data(0x28);
+  IO.send_data(0x17);
 
-  IO.cmd(0x04); // POWER ON
+  IO.send_command(0x04); // POWER ON
   // waiting for the electronic paper IC to release the idle signal
   _waitBusy("power_on");
 
-  IO.cmd(0X00);  // PANNEL SETTING
-  IO.data(0x1F); // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
+  IO.send_command(0X00); // PANNEL SETTING
+  IO.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
 
-  IO.cmd(0x61);  // tres
-  IO.data(0x03); // source 800
-  IO.data(0x20);
-  IO.data(0x01); // gate 480
-  IO.data(0xE0);
+  IO.send_command(0x61); // tres
+  IO.send_data(0x03);    // source 800
+  IO.send_data(0x20);
+  IO.send_data(0x01); // gate 480
+  IO.send_data(0xE0);
 
-  IO.cmd(0X15);
-  IO.data(0x00);
+  IO.send_command(0X15);
+  IO.send_data(0x00);
 
-  IO.cmd(0X50); // VCOM AND DATA INTERVAL SETTING
-  IO.data(0x10);
-  IO.data(0x07);
+  IO.send_command(0X50); // VCOM AND DATA INTERVAL SETTING
+  IO.send_data(0x10);
+  IO.send_data(0x07);
 
-  IO.cmd(0X60); // TCON SETTING
-  IO.data(0x22);
+  IO.send_command(0X60); // TCON SETTING
+  IO.send_data(0x22);
 }
 
 void Gdey075T7::update()
@@ -183,7 +180,7 @@ void Gdey075T7::update()
   _using_partial_mode = false;
   _wakeUp();
 
-  IO.cmd(0x13);
+  IO.send_command(0x13);
   printf("Sending a %d bytes buffer via SPI\n", sizeof(_buffer));
 
   // v2 SPI optimizing. Check: https://github.com/martinberlin/cale-idf/wiki/About-SPI-optimization
@@ -198,14 +195,14 @@ void Gdey075T7::update()
       x1buf[x - 1] = data;
       if (x == xLineBytes)
       { // Flush the X line buffer to SPI
-        IO.data(x1buf, sizeof(x1buf));
+        IO.send_data(x1buf, sizeof(x1buf));
       }
       ++i;
     }
   }
 
   uint64_t endTime = esp_timer_get_time();
-  IO.cmd(0x12);
+  IO.send_command(0x12);
   _waitBusy("update");
   uint64_t updateTime = esp_timer_get_time();
   printf("\n\nSTATS (ms)\n%llu _wakeUp settings+send Buffer\n%llu update \n%llu total time in millis\n",
@@ -221,16 +218,16 @@ uint16_t Gdey075T7::_setPartialRamArea(uint16_t x, uint16_t y, uint16_t xe, uint
 {
   x &= 0xFFF8;            // byte boundary
   xe = (xe - 1) | 0x0007; // byte boundary - 1
-  IO.cmd(0x90);           // partial window
-  IO.data(x / 256);
-  IO.data(x % 256);
-  IO.data(xe / 256);
-  IO.data(xe % 256);
-  IO.data(y / 256);
-  IO.data(y % 256);
-  IO.data(ye / 256);
-  IO.data(ye % 256);
-  IO.data(0x00);
+  IO.send_command(0x90);  // partial window
+  IO.send_data(x / 256);
+  IO.send_data(x % 256);
+  IO.send_data(xe / 256);
+  IO.send_data(xe % 256);
+  IO.send_data(y / 256);
+  IO.send_data(y % 256);
+  IO.send_data(ye / 256);
+  IO.send_data(ye % 256);
+  IO.send_data(0x00);
   return (7 + xe - x) / 8; // number of bytes to transfer per line
 }
 
@@ -257,10 +254,10 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
   _using_partial_mode = true;
   initPartialUpdate();
 
-  {               // leave both controller buffers equal
-    IO.cmd(0x91); // partial in
+  {                        // leave both controller buffers equal
+    IO.send_command(0x91); // partial in
     _setPartialRamArea(x, y, xe, ye);
-    IO.cmd(0x13);
+    IO.send_command(0x13);
 
     for (int16_t y1 = y; y1 <= ye; y1++)
     {
@@ -270,7 +267,7 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
         // white is 0x00 in buffer
         uint8_t data = (idx < sizeof(_buffer)) ? _buffer[idx] : 0x00;
         // white is 0xFF on device
-        IO.data(data);
+        IO.send_data(data);
 
         if (idx % 8 == 0)
         {
@@ -281,9 +278,9 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
         }
       }
     }
-    IO.cmd(0x12); // display refresh
+    IO.send_command(0x12); // display refresh
     _waitBusy("updateWindow");
-    IO.cmd(0x92); // partial out
+    IO.send_command(0x92); // partial out
   }
 
   vTaskDelay(GDEY075T7_PU_DELAY / portTICK_PERIOD_MS);
@@ -313,10 +310,10 @@ void Gdey075T7::_waitBusy(const char *message)
 
 void Gdey075T7::_sleep()
 {
-  IO.cmd(0x02);
+  IO.send_command(0x02);
   _waitBusy("power_off");
-  IO.cmd(0x07); // Deep sleep
-  IO.data(0xA5);
+  IO.send_command(0x07); // Deep sleep
+  IO.send_data(0xA5);
 }
 
 void Gdey075T7::_rotate(uint16_t &x, uint16_t &y, uint16_t &w, uint16_t &h)

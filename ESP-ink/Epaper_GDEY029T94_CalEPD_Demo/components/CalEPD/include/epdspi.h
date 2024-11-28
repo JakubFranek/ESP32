@@ -1,31 +1,26 @@
-/* Implement IoInterface for SPI communication */
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
-#include "iointerface.h"
-#include <vector>
-using namespace std;
-
+/*
+ * This file is based on source code originally from martinberlin/CalEPD GitHub repository,
+ * available at https://github.com/martinberlin/CalEPD.
+ *
+ * Modifications have been made to the original code by Jakub Franek (https://github.com/JakubFranek),
+ * as permitted under the Apache License, Version 2.0.
+ */
 #ifndef epdspi_h
 #define epdspi_h
-// : IoInterface
+
+#include "driver/spi_master.h"
+#include "driver/gpio.h"
+
 class EpdSpi
 {
 public:
   spi_device_handle_t spi;
-  const char *TAG = "EpdSpi";
+  const char *TAG = "EpdSpi"; // needed for logging
 
-  void cmd(const uint8_t cmd); // Should override if IoInterface is there
-  void data(uint8_t data);
-  void dataBuffer(uint8_t data);
-  void data(const uint8_t *data, int len);
-  // Deprecated
-  void dataVector(vector<uint8_t> _buffer);
+  void send_command(const uint8_t cmd); // Should override if IoInterface is there
+  void send_data(uint8_t data);
+  void send_data(const uint8_t *data, int len);
   void reset(uint8_t millis);
-  void init(uint8_t frequency, bool debug);
-
-private:
-  bool debug_enabled = true;
+  void initialize(uint8_t frequency);
 };
 #endif
-// Note: using override compiler will issue an error for "changing the type"
-//       in case the type is changed.

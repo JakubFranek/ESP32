@@ -33,7 +33,7 @@ void app_main(void)
     gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
     gpio_set_level(GPIO_NUM_2, 1);
 
-    display.init(false);
+    display.init();
     display.setRotation(3);
 
     display.setMonoMode(true);
@@ -46,7 +46,6 @@ void app_main(void)
     display.getTextBounds("This is a test text", 0, 0, &x1, &y1, &w, &h);
     uint16_t x = -x1;
     uint16_t y = -y1;
-    printf("x1=%d y1=%d w=%d h=%d x=%d y=%d\n", x1, y1, w, h, x, y);
     display.setCursor(x, y);
 
     display.println("This is a test text");

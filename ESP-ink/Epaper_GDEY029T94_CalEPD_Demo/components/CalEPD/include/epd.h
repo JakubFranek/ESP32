@@ -1,3 +1,11 @@
+/*
+ * This file is based on source code originally from martinberlin/CalEPD GitHub repository,
+ * available at https://github.com/martinberlin/CalEPD.
+ *
+ * Modifications have been made to the original code by Jakub Franek (https://github.com/JakubFranek),
+ * as permitted under the Apache License, Version 2.0.
+ */
+
 #ifndef epd_h
 #define epd_h
 
@@ -15,6 +23,8 @@
 #include <string>
 #include <Adafruit_GFX.h>
 #include <epdspi.h>
+
+using namespace std;
 
 // Shared struct(s) for different models
 typedef struct
@@ -121,7 +131,7 @@ public:
 
     // Every display model should implement this public methods
     virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0; // Override GFX own drawPixel method
-    virtual void init(bool debug = false) = 0;
+    virtual void init() = 0;
     virtual void update() = 0;
 
     // This are common methods every MODELX will inherit

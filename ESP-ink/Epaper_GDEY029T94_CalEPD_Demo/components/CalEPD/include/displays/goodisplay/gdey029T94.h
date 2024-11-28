@@ -1,3 +1,11 @@
+/*
+ * This file is based on source code originally from martinberlin/CalEPD GitHub repository,
+ * available at https://github.com/martinberlin/CalEPD.
+ *
+ * Modifications have been made to the original code by Jakub Franek (https://github.com/JakubFranek),
+ * as permitted under the Apache License, Version 2.0.
+ */
+
 // GOODISPLAY product https://www.good-display.com/product/389.html
 // Controller:        SSD1680
 #include <stdio.h>
@@ -41,14 +49,11 @@ public:
 
   void drawPixel(int16_t x, int16_t y, uint16_t color); // Override GFX own drawPixel method
 
-  // EPD tests
-  void init(bool debug = false);
+  void init(void);
   void setMonoMode(bool mode);
   void fillScreen(uint16_t color);
   void update();
-  void eraseDisplay(bool using_partial_update = false);
 
-  // Partial update test status please check repository Wiki
   void updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation = true);
 
 private:

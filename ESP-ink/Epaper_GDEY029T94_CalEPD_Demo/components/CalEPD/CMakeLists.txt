@@ -7,7 +7,7 @@
 set(srcs 
     
     "src/displays/goodisplay/gdey029T94.cpp"
-    "src/displays/goodisplay/gdey075T7.cpp"
+    #"src/displays/goodisplay/gdey075T7.cpp"
 
     "src/epd.cpp"
     "src/epdspi.cpp"
