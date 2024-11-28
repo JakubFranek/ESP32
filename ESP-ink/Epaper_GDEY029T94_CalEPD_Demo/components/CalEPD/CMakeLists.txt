@@ -6,11 +6,11 @@
 
 set(srcs 
     
-    "models/goodisplay/gdey029T94.cpp"
-    "models/goodisplay/gdey075T7.cpp"
+    "src/displays/goodisplay/gdey029T94.cpp"
+    "src/displays/goodisplay/gdey075T7.cpp"
 
-    "epd.cpp"
-    "epdspi.cpp"
+    "src/epd.cpp"
+    "src/epdspi.cpp"
     )
 
 

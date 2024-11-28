@@ -1,4 +1,12 @@
-#include "goodisplay/gdey029T94.h"
+/*
+ * This file is based on source code originally from martinberlin/CalEPD GitHub repository,
+ * available at https://github.com/martinberlin/CalEPD.
+ *
+ * Modifications have been made to the original code by Jakub Franek (https://github.com/JakubFranek),
+ * as permitted under the Apache License, Version 2.0.
+ */
+
+#include "displays/goodisplay/gdey029T94.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp_log.h"

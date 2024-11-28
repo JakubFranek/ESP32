@@ -1,4 +1,12 @@
-#include "goodisplay/gdey075T7.h"
+/*
+ * This file is based on source code originally from martinberlin/CalEPD GitHub repository,
+ * available at https://github.com/martinberlin/CalEPD.
+ *
+ * Modifications have been made to the original code by Jakub Franek (https://github.com/JakubFranek),
+ * as permitted under the Apache License, Version 2.0.
+ */
+
+#include "displays/goodisplay/gdey075T7.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp_log.h"
@@ -11,9 +19,9 @@
  Manufacturer sample: https://github.com/waveshare/e-Paper/blob/master/Arduino/epd7in5_V2/epd7in5_V2.cpp
 */
 #define T1 0x19 // charge balance pre-phase
-#define T2 0x01  // optional extension
+#define T2 0x01 // optional extension
 #define T3 0x00 // color change phase (b/w)
-#define T4 0x00  // optional extension for one color
+#define T4 0x00 // optional extension for one color
 
 // Partial Update Delay, may have an influence on degradation
 #define GDEY075T7_PU_DELAY 100
@@ -23,19 +31,15 @@ DRAM_ATTR const epd_init_42 Gdey075T7::lut_20_LUTC_partial = {
     0x20, {0x00, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_21_LUTWW_partial = {
-    0x21, {
-           0x00, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-    42};
+    0x21, {0x00, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_22_LUTKW_partial = {
-    0x22, {
-           0x80, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-    42};
+    0x22, {0x80, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_23_LUTWK_partial = {
     0x23, {
-          0x40, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-          //0xA5 more black
+              0x40, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+              // 0xA5 more black
           },
     42};
 
@@ -62,9 +66,9 @@ DRAM_ATTR const epd_init_1 Gdey075T7::epd_panel_setting_partial = {
     0x00, {0x3f}, 1};
 
 DRAM_ATTR const epd_init_4 Gdey075T7::epd_resolution = {
-    0x61, {GDEY075T7_WIDTH / 256, //source 800
+    0x61, {GDEY075T7_WIDTH / 256, // source 800
            GDEY075T7_WIDTH % 256,
-           GDEY075T7_HEIGHT / 256, //gate 480
+           GDEY075T7_HEIGHT / 256, // gate 480
            GDEY075T7_HEIGHT % 256},
     4};
 
@@ -74,7 +78,7 @@ Gdey075T7::Gdey075T7(EpdSpi &dio) : Adafruit_GFX(GDEY075T7_WIDTH, GDEY075T7_HEIG
 {
   printf("Gdey075T7() constructor injects IO and extends Adafruit_GFX(%d,%d) Pix Buffer[%d]\n",
          GDEY075T7_WIDTH, GDEY075T7_HEIGHT, (int)GDEY075T7_BUFFER_SIZE);
-  printf("\nAvailable heap after Epd bootstrap:%d\n", (int) xPortGetFreeHeapSize());
+  printf("\nAvailable heap after Epd bootstrap:%d\n", (int)xPortGetFreeHeapSize());
 }
 
 void Gdey075T7::initPartialUpdate()
@@ -110,13 +114,13 @@ void Gdey075T7::initPartialUpdate()
   IO.data(lut_25_LUTBD_partial.data, lut_25_LUTBD_partial.databytes);
 }
 
-//Initialize the display
+// Initialize the display
 void Gdey075T7::init(bool debug)
 {
   debug_enabled = debug;
   if (debug_enabled)
     printf("Gdey075T7::init(debug:%d)\n", debug);
-  //Initialize SPI at 4MHz frequency. true for debug
+  // Initialize SPI at 4MHz frequency. true for debug
   IO.init(4, false);
   fillScreen(EPD_WHITE);
   _wakeUp();
@@ -134,42 +138,42 @@ void Gdey075T7::fillScreen(uint16_t color)
 void Gdey075T7::_wakeUp()
 {
   IO.reset(10);
-  //IMPORTANT: Some EPD controllers like to receive data byte per byte
-  //So this won't work:
-  //IO.data(epd_wakeup_power.data,epd_wakeup_power.databytes);
-  IO.cmd(0x01);     //POWER SETTING
+  // IMPORTANT: Some EPD controllers like to receive data byte per byte
+  // So this won't work:
+  // IO.data(epd_wakeup_power.data,epd_wakeup_power.databytes);
+  IO.cmd(0x01); // POWER SETTING
   IO.data(0x07);
-  IO.data(0x07);   //VGH=20V,VGL=-20V
-  IO.data(0x3f);   //VDH=15V
-  IO.data(0x3f);   //VDL=-15V
-  //Enhanced display drive(Add 0x06 command)
-  IO.cmd(0x06);     //Booster Soft Start 
+  IO.data(0x07); // VGH=20V,VGL=-20V
+  IO.data(0x3f); // VDH=15V
+  IO.data(0x3f); // VDL=-15V
+  // Enhanced display drive(Add 0x06 command)
+  IO.cmd(0x06); // Booster Soft Start
   IO.data(0x17);
-  IO.data(0x17);   
-  IO.data(0x28);   
-  IO.data(0x17); 
+  IO.data(0x17);
+  IO.data(0x28);
+  IO.data(0x17);
 
-  IO.cmd(0x04); //POWER ON
-  //waiting for the electronic paper IC to release the idle signal
-  _waitBusy("power_on");  
+  IO.cmd(0x04); // POWER ON
+  // waiting for the electronic paper IC to release the idle signal
+  _waitBusy("power_on");
 
-  IO.cmd(0X00);     //PANNEL SETTING
-  IO.data(0x1F);   //KW-3f   KWR-2F BWROTP 0f BWOTP 1f
+  IO.cmd(0X00);  // PANNEL SETTING
+  IO.data(0x1F); // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
 
-  IO.cmd(0x61);         //tres      
-  IO.data(0x03);   //source 800
+  IO.cmd(0x61);  // tres
+  IO.data(0x03); // source 800
   IO.data(0x20);
-  IO.data(0x01);   //gate 480
+  IO.data(0x01); // gate 480
   IO.data(0xE0);
 
-  IO.cmd(0X15);   
-  IO.data(0x00);    
+  IO.cmd(0X15);
+  IO.data(0x00);
 
-  IO.cmd(0X50);     //VCOM AND DATA INTERVAL SETTING
+  IO.cmd(0X50); // VCOM AND DATA INTERVAL SETTING
   IO.data(0x10);
   IO.data(0x07);
 
-  IO.cmd(0X60);     //TCON SETTING
+  IO.cmd(0X60); // TCON SETTING
   IO.data(0x22);
 }
 
@@ -206,7 +210,7 @@ void Gdey075T7::update()
   uint64_t updateTime = esp_timer_get_time();
   printf("\n\nSTATS (ms)\n%llu _wakeUp settings+send Buffer\n%llu update \n%llu total time in millis\n",
          (endTime - startTime) / 1000, (updateTime - endTime) / 1000, (updateTime - startTime) / 1000);
-  
+
   // Additional 2 seconds wait before sleeping since in low temperatures full update takes longer
   vTaskDelay(2000 / portTICK_PERIOD_MS);
 
@@ -245,9 +249,10 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
   // x &= 0xFFF8; // byte boundary, need to test this
   uint16_t xs_bx = x / 8;
   uint16_t xe_bx = (xe + 7) / 8;
-  if (!_using_partial_mode) {
+  if (!_using_partial_mode)
+  {
     _wakeUp();
-    }
+  }
 
   _using_partial_mode = true;
   initPartialUpdate();
@@ -269,9 +274,9 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
 
         if (idx % 8 == 0)
         {
-          #if defined CONFIG_IDF_TARGET_ESP32 && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+#if defined CONFIG_IDF_TARGET_ESP32 && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
           rtc_wdt_feed();
-          #endif
+#endif
           vTaskDelay(pdMS_TO_TICKS(1));
         }
       }
@@ -366,6 +371,7 @@ void Gdey075T7::drawPixel(int16_t x, int16_t y, uint16_t color)
   }
 }
 
-void Gdey075T7::setRawBuf(uint32_t position, uint8_t value) {
-  _buffer[position] = ~ value;
+void Gdey075T7::setRawBuf(uint32_t position, uint8_t value)
+{
+  _buffer[position] = ~value;
 }

@@ -16,7 +16,8 @@
 #include "gfxfont.h"
 #include "Fonts/FreeSans12pt7b.h"
 
-#include "goodisplay/gdey029T94.h"
+#include "displays/goodisplay/gdey029T94.h"
+
 EpdSpi io;
 Gdey029T94 display(io);
 
