@@ -68,7 +68,7 @@ public:
     Epd(int16_t w, int16_t h) : Adafruit_GFX(w, h) {};
 
     virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0; // Override GFX own drawPixel method
-    virtual void init() = 0;
+    virtual void initialize() = 0;
     virtual void update() = 0;
 
     size_t write(uint8_t);

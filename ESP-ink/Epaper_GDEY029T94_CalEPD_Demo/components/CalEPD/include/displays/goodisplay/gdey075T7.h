@@ -49,7 +49,7 @@ public:
   void drawPixel(int16_t x, int16_t y, uint16_t color); // Override GFX own drawPixel method
 
   // EPD tests
-  void init();
+  void initialize();
 
   void initPartialUpdate();
   // Partial update of rectangle from buffer to screen, does not power off

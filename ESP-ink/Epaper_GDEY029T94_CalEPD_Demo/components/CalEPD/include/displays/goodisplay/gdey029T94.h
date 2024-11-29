@@ -39,8 +39,7 @@ public:
 
   void drawPixel(int16_t x, int16_t y, uint16_t color); // Mandatory override of GFX own drawPixel method
 
-  void init(void);
-  void setMonoMode(bool mode);
+  void initialize(void);
   void fillScreen(uint16_t color);
   void update();
 
@@ -49,13 +48,9 @@ public:
 private:
   static constexpr const char *TAG = "GDEY029T94";
   EpdSpi &epd_spi;
-  bool _mono_mode = false;
-  uint8_t _mono_buffer[GDEY029T94_BUFFER_SIZE];
-  uint8_t _buffer1[GDEY029T94_BUFFER_SIZE];
-  uint8_t _buffer2[GDEY029T94_BUFFER_SIZE];
+  uint8_t _buffer[GDEY029T94_BUFFER_SIZE];
 
   void _wakeUp();
-  void _wakeUpGrayMode();
   void _sleep();
 
   void _waitBusy(const char *message);

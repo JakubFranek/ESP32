@@ -115,7 +115,7 @@ void Gdey075T7::initPartialUpdate()
 }
 
 // Initialize the display
-void Gdey075T7::init()
+void Gdey075T7::initialize()
 {
   // Initialize SPI at 4MHz frequency
   epd_spi.initialize(4);
@@ -216,9 +216,9 @@ void Gdey075T7::update()
 
 uint16_t Gdey075T7::_setPartialRamArea(uint16_t x, uint16_t y, uint16_t xe, uint16_t ye)
 {
-  x &= 0xFFF8;            // byte boundary
-  xe = (xe - 1) | 0x0007; // byte boundary - 1
-  epd_spi.send_command(0x90);  // partial window
+  x &= 0xFFF8;                // byte boundary
+  xe = (xe - 1) | 0x0007;     // byte boundary - 1
+  epd_spi.send_command(0x90); // partial window
   epd_spi.send_data(x / 256);
   epd_spi.send_data(x % 256);
   epd_spi.send_data(xe / 256);
@@ -254,7 +254,7 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
   _using_partial_mode = true;
   initPartialUpdate();
 
-  {                        // leave both controller buffers equal
+  {                             // leave both controller buffers equal
     epd_spi.send_command(0x91); // partial in
     _setPartialRamArea(x, y, xe, ye);
     epd_spi.send_command(0x13);

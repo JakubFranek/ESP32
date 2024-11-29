@@ -14,6 +14,7 @@
 #include "esp_spi_flash.h"
 
 #include "gfxfont.h"
+#include "Fonts/FreeSans9pt7b.h"
 #include "Fonts/FreeSans12pt7b.h"
 
 #include "displays/goodisplay/gdey029T94.h"
@@ -33,23 +34,23 @@ void app_main(void)
     gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
     gpio_set_level(GPIO_NUM_2, 1);
 
-    display.init();
+    display.initialize();
     display.setRotation(3);
 
-    display.setMonoMode(true);
     display.fillScreen(EPD_WHITE);
     display.setTextColor(EPD_BLACK);
     display.setFont(&FreeSans12pt7b);
 
     int16_t x1, y1;
     uint16_t w, h;
-    display.getTextBounds("This is a test text!", 0, 0, &x1, &y1, &w, &h);
+    display.getTextBounds("This is a test!", 0, 0, &x1, &y1, &w, &h);
     uint16_t x = -x1;
     uint16_t y = -y1;
     display.setCursor(x, y);
 
-    display.println("This is a test text!");
-    display.drawLine(0, 0, display.width(), display.height(), EPD_BLACK);
+    display.println("This is a test!");
+    display.drawLine(0, 100, display.width(), 100, EPD_BLACK);
+    display.draw_centered_text(&FreeSans9pt7b, 0, 0, display.width(), display.height(), "THIS IS THE CENTER!");
 
     display.update();
 
