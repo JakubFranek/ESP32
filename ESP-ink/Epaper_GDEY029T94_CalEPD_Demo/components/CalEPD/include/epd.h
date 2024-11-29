@@ -13,54 +13,18 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "esp_system.h"
 #include <stdint.h>
 #include <math.h>
+#include <string>
+
+#include "freertos/FreeRTOS.h"
+#include "esp_system.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
-#include <string>
-#include <Adafruit_GFX.h>
-#include <epdspi.h>
+#include "Adafruit_GFX.h"
+#include "epdspi.h"
 
 using namespace std;
-
-// Shared struct(s) for different models
-// TODO: review these structs
-typedef struct
-{
-    uint8_t cmd;
-    uint8_t data[159];
-    uint8_t databytes;
-} epd_lut_159;
-
-typedef struct
-{
-    uint8_t cmd;
-    uint8_t data[42];
-    uint8_t databytes; // No of data in data; Could be done also using sizeOf
-} epd_init_42;
-
-typedef struct
-{
-    uint8_t cmd;
-    uint8_t data[1];
-    uint8_t databytes;
-} epd_init_1;
-
-typedef struct
-{
-    uint8_t cmd;
-    uint8_t data[4];
-    uint8_t databytes;
-} epd_init_4;
-
-typedef struct
-{
-    uint8_t cmd;
-    uint8_t data[5];
-    uint8_t databytes;
-} epd_power_4;
 
 class Epd : public virtual Adafruit_GFX
 {

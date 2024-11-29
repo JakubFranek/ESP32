@@ -52,7 +52,6 @@ void Gdey029T94::initialize(void)
 
   epd_spi.reset(GDEY029T94_HW_RESET_DELAY_MS);
   fillScreen(EPD_WHITE);
-  fillScreen(EPD_WHITE);
 }
 
 void Gdey029T94::fillScreen(uint16_t color)
@@ -74,17 +73,16 @@ void Gdey029T94::update()
 
   _wakeUp();
 
-  epd_spi.send_command(SSD1680_CMD_WRITE_RAM_BW); // write RAM1 for black(0)/white (1)
+  epd_spi.send_command(SSD1680_CMD_WRITE_RAM_BW);
   for (int y = GDEY029T94_HEIGHT; y >= 0; y--)
   {
     for (uint16_t x = 0; x < xLineBytes; x++)
     {
       uint16_t idx = y * xLineBytes + x;
-      uint8_t data = _buffer[idx];
-      x1buf[x] = data; // ~ is invert
+      x1buf[x] = _buffer[idx];
 
       if (x == xLineBytes - 1)
-        epd_spi.send_data(x1buf, sizeof(x1buf)); // Flush the X line buffer to SPI
+        epd_spi.send_data(x1buf, sizeof(x1buf));
     }
   }
 

@@ -58,6 +58,4 @@ private:
   void _setRamDataEntryMode(uint8_t em);
   void _SetRamArea(uint8_t Xstart, uint8_t Xend, uint8_t Ystart, uint8_t Ystart1, uint8_t Yend, uint8_t Yend1);
   void _SetRamPointer(uint8_t addrX, uint8_t addrY, uint8_t addrY1);
-
-  static const epd_lut_159 lut_4_grays; // LUT tables for this display are filled with zeroes at the end with writeLuts()
 };

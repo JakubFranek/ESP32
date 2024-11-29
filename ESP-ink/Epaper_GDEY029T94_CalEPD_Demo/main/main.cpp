@@ -8,10 +8,6 @@
 */
 #include <stdio.h>
 #include "sdkconfig.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_spi_flash.h"
 
 #include "gfxfont.h"
 #include "Fonts/FreeSans9pt7b.h"
@@ -19,8 +15,8 @@
 
 #include "displays/goodisplay/gdey029T94.h"
 
-EpdSpi io;
-Gdey029T94 display(io);
+EpdSpi epd_spi;
+Gdey029T94 display(epd_spi);
 
 extern "C"
 {
