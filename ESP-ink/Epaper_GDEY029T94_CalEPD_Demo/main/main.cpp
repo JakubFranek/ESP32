@@ -43,12 +43,12 @@ void app_main(void)
 
     int16_t x1, y1;
     uint16_t w, h;
-    display.getTextBounds("This is a test text", 0, 0, &x1, &y1, &w, &h);
+    display.getTextBounds("This is a test text!", 0, 0, &x1, &y1, &w, &h);
     uint16_t x = -x1;
     uint16_t y = -y1;
     display.setCursor(x, y);
 
-    display.println("This is a test text");
+    display.println("This is a test text!");
     display.drawLine(0, 0, display.width(), display.height(), EPD_BLACK);
 
     display.update();

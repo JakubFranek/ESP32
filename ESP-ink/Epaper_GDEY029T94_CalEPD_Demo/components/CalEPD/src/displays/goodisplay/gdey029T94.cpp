@@ -15,24 +15,51 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#define GDEY029T94_SPI_FREQUENCY_MHZ 4
+#define GDEY029T94_HW_RESET_DELAY_MS 20
+#define GDEY029T94_BUSY_TIMEOUT_US 4000000 // 4 s
+#define GDEY029T94_UPDATE_SEQUENCE_COLOR 0x37
+#define GDEY029T94_UPDATE_SEQUENCE_MONO 0xF7
+#define GDEY029T94_UPDATE_SEQUENCE_GRAY 0xC4
+#define GDEY029T94_UPDATE_SEQUENCE_MONO_FAST 0xC7
+#define GDEY029T94_UPDATE_SEQUENCE_MONO_PARTIAL 0xFF
+#define GDEY029T94_BORDER_WAVEFORM 0x05 // Follow LUT 1
+
+#define SSD1680_CMD_SET_DRIVER_OUTPUT_CONTROL 0x01
+#define SSD1680_CMD_SET_GATE_DRIVING_VOLTAGE 0x03
+#define SSD1680_CMD_SET_SOURCE_DRIVING_VOLTAGE 0x04
+#define SSD1680_CMD_SET_DEEP_SLEEP_MODE 0x10
+#define SSD1680_CMD_SET_DATA_ENTRY_MODE 0x11
+#define SSD1680_CMD_SW_RESET 0x12
+#define SSD1680_CMD_UPDATE 0x20
+#define SSD1680_CMD_SET_UPDATE_RAM 0x21
+#define SSD1680_CMD_SET_UPDATE_SEQUENCE 0x22
+#define SSD1680_CMD_WRITE_RAM_BW 0x24
+#define SSD1680_CMD_WRITE_RAM_RED 0x26
+#define SSD1680_CMD_WRITE_VCOM_REGISTER 0x2C
+#define SSD1680_CMD_SET_BORDER_WAVEFORM 0x3C
+#define SSD1680_CMD_SET_LUT_END_OPTION 0x3F
+#define SSD1680_CMD_SELECT_TEMPERATURE_SENSOR 0x18
+#define SSD1680_CMD_SET_RAM_X_START_END_ADDRESS 0x44
+#define SSD1680_CMD_SET_RAM_Y_START_END_ADDRESS 0x45
+#define SSD1680_CMD_SET_RAM_X_COUNTER 0x4E
+#define SSD1680_CMD_SET_RAM_Y_COUNTER 0x4F
+
 // 4-grays Waveform
 const epd_lut_159 Gdey029T94::lut_4_grays = {
     0x32, {0x40, 0x48, 0x80, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x8, 0x48, 0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x48, 0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x20, 0x48, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xA, 0x19, 0x0, 0x3, 0x8, 0x0, 0x0, 0x14, 0x1, 0x0, 0x14, 0x1, 0x0, 0x3, 0xA, 0x3, 0x0, 0x8, 0x19, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x0, 0x0, 0x0, 0x22, 0x17, 0x41, 0x0, 0x32, 0x1C}, 159};
 
 // Empty constructor
 Gdey029T94::Gdey029T94(EpdSpi &dio) : Adafruit_GFX(GDEY029T94_WIDTH, GDEY029T94_HEIGHT),
-                                      Epd(GDEY029T94_WIDTH, GDEY029T94_HEIGHT), IO(dio) {};
+                                      Epd(GDEY029T94_WIDTH, GDEY029T94_HEIGHT), epd_spi(dio) {};
 
-// Initialize the display
 void Gdey029T94::init(void)
 {
-  // Initialize the Epaper and reset it
-  IO.initialize(4); // 4MHz frequency, debug
+  epd_spi.initialize(GDEY029T94_SPI_FREQUENCY_MHZ);
 
-  // Reset the display
-  IO.reset(20);
+  epd_spi.reset(GDEY029T94_HW_RESET_DELAY_MS);
   fillScreen(EPD_WHITE);
-  _mono_mode = 1;
+  _mono_mode = true;
   fillScreen(EPD_WHITE);
 }
 
@@ -40,24 +67,22 @@ void Gdey029T94::fillScreen(uint16_t color)
 {
   if (_mono_mode)
   {
-    uint8_t data = (color == EPD_WHITE) ? 0xFF : 0x00;
+    uint8_t data = (color == EPD_WHITE) ? EPD_WHITE : EPD_BLACK;
     for (uint16_t x = 0; x < sizeof(_mono_buffer); x++)
     {
       _mono_buffer[x] = data;
     }
-    if (debug_enabled)
-      printf("fillScreen(%d) _mono_buffer len:%d\n", data, sizeof(_mono_buffer));
+    ESP_LOGD(TAG, "fillScreen(%d) _mono_buffer len:%d\n", data, sizeof(_mono_buffer));
   }
   else
   {
-
     // This is to make faster black & white
-    if (color == 255 || color == 0)
+    if (color == EPD_WHITE || color == EPD_BLACK)
     {
       for (uint32_t i = 0; i < GDEY029T94_BUFFER_SIZE; i++)
       {
-        _buffer1[i] = (color == 0xFF) ? 0x00 : 0xFF;
-        _buffer2[i] = (color == 0xFF) ? 0x00 : 0xFF;
+        _buffer1[i] = (color == EPD_WHITE) ? EPD_BLACK : EPD_WHITE;
+        _buffer2[i] = (color == EPD_WHITE) ? EPD_BLACK : EPD_WHITE;
       }
       return;
     }
@@ -68,9 +93,7 @@ void Gdey029T94::fillScreen(uint16_t color)
       {
         drawPixel(x, y, color);
         if (x % 8 == 0)
-        {
           vTaskDelay(pdMS_TO_TICKS(2));
-        }
       }
     }
   }
@@ -81,16 +104,14 @@ void Gdey029T94::update()
   _using_partial_mode = false;
   uint64_t startTime = esp_timer_get_time();
 
-  // For v1.0 only monochrome supported
   uint8_t xLineBytes = GDEY029T94_WIDTH / 8;
   uint8_t x1buf[xLineBytes];
-  uint32_t i = 0;
 
   if (_mono_mode)
   {
     _wakeUp();
 
-    IO.send_command(0x24); // write RAM1 for black(0)/white (1)
+    epd_spi.send_command(SSD1680_CMD_WRITE_RAM_BW); // write RAM1 for black(0)/white (1)
     for (int y = GDEY029T94_HEIGHT; y >= 0; y--)
     {
       for (uint16_t x = 0; x < xLineBytes; x++)
@@ -100,19 +121,18 @@ void Gdey029T94::update()
         x1buf[x] = data; // ~ is invert
 
         if (x == xLineBytes - 1)
-        { // Flush the X line buffer to SPI
-          IO.send_data(x1buf, sizeof(x1buf));
-        }
-        ++i;
+          epd_spi.send_data(x1buf, sizeof(x1buf)); // Flush the X line buffer to SPI
       }
     }
   }
   else
   {
+    uint32_t i = 0;
+
     _wakeUpGrayMode();
 
     // 4 grays mode
-    IO.send_command(0x24); // write RAM1 for black(0)/white (1)
+    epd_spi.send_command(SSD1680_CMD_WRITE_RAM_BW);
     for (int y = GDEY029T94_HEIGHT; y >= 0; y--)
     {
       for (uint16_t x = 0; x < xLineBytes; x++)
@@ -122,14 +142,16 @@ void Gdey029T94::update()
         x1buf[x] = data; // ~ is invert
 
         if (x == xLineBytes - 1)
-        { // Flush the X line buffer to SPI
-          IO.send_data(x1buf, sizeof(x1buf));
+        {
+          epd_spi.send_data(x1buf, sizeof(x1buf)); // Flush the X line buffer to SPI
         }
         ++i;
       }
     }
+
     i = 0;
-    IO.send_command(0x26); // RAM2 buffer: SPI2
+    epd_spi.send_command(SSD1680_CMD_WRITE_RAM_RED);
+
     for (int y = GDEY029T94_HEIGHT; y >= 0; y--)
     {
       for (uint16_t x = 0; x < xLineBytes; x++)
@@ -139,19 +161,18 @@ void Gdey029T94::update()
         x1buf[x] = data; // ~ is invert
 
         if (x == xLineBytes - 1)
-        { // Flush the X line buffer to SPI
-          IO.send_data(x1buf, sizeof(x1buf));
-        }
+          epd_spi.send_data(x1buf, sizeof(x1buf)); // Flush the X line buffer to SPI
+
         ++i;
       }
     }
   }
   uint64_t endTime = esp_timer_get_time();
 
-  IO.send_command(0x22); // Display Update Control
-  uint8_t twenty_two = (_mono_mode) ? 0xF7 : 0xC4;
-  IO.send_data(twenty_two); // When 4 gray 0xC4 : Same as gdeh042Z96
-  IO.send_command(0x20);    // Update sequence
+  epd_spi.send_command(SSD1680_CMD_SET_UPDATE_SEQUENCE);
+  uint8_t update_sequence = (_mono_mode) ? GDEY029T94_UPDATE_SEQUENCE_MONO : GDEY029T94_UPDATE_SEQUENCE_GRAY;
+  epd_spi.send_data(update_sequence);
+  epd_spi.send_command(SSD1680_CMD_UPDATE);
 
   _waitBusy("update full");
   uint64_t powerOnTime = esp_timer_get_time();
@@ -164,24 +185,27 @@ void Gdey029T94::update()
 
 void Gdey029T94::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation)
 {
-  // ESP_LOGE("PARTIAL", "update is not implemented x:%d y:%d\n", (int)x, (int)y);
   if (!_using_partial_mode)
   {
     _using_partial_mode = true;
     _wakeUp();
   }
+
   if (using_rotation)
     _rotate(x, y, w, h);
+
   if (x >= GDEY029T94_WIDTH)
     return;
+
   if (y >= GDEY029T94_HEIGHT)
     return;
+
   uint16_t xe = gx_uint16_min(GDEY029T94_WIDTH, x + w) - 1;
   uint16_t ye = gx_uint16_min(GDEY029T94_HEIGHT, y + h) - 1;
   uint16_t xs_d8 = x / 8;
   uint16_t xe_d8 = xe / 8;
 
-  IO.send_command(0x12); // SWRESET
+  epd_spi.send_command(SSD1680_CMD_SW_RESET); // SWRESET
   _waitBusy("SWRESET");
 
   _setRamDataEntryMode(0x03);
@@ -189,10 +213,10 @@ void Gdey029T94::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bo
   _SetRamPointer(xs_d8, y % 256, y / 256);                         // set ram
   _waitBusy("updateWindow I");
 
-  IO.send_command(0x22);
-  IO.send_data(0xFF);
+  epd_spi.send_command(SSD1680_CMD_SET_UPDATE_SEQUENCE);
+  epd_spi.send_data(0xFF);
 
-  IO.send_command(0x24); // BW RAM
+  epd_spi.send_command(SSD1680_CMD_WRITE_RAM_BW); // BW RAM
   // printf("Loop from ys:%d to ye:%d\n", y, ye);
 
   for (int16_t y1 = y; y1 <= ye; y1++)
@@ -201,25 +225,25 @@ void Gdey029T94::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bo
     {
       uint16_t idx = y1 * (GDEY029T94_WIDTH / 8) + x1;
       uint8_t data = (idx < sizeof(_mono_buffer)) ? _mono_buffer[idx] : 0x00;
-      IO.send_data(data);
+      epd_spi.send_data(data);
     }
   }
 
   // If I don't do this then the 2nd partial comes out gray:
-  IO.send_command(0x26); // RAM2
+  epd_spi.send_command(SSD1680_CMD_WRITE_RAM_RED); // RAM2
   for (int16_t y1 = y; y1 <= ye; y1++)
   {
     for (int16_t x1 = xs_d8; x1 <= xe_d8; x1++)
     {
       uint16_t idx = y1 * (GDEY029T94_WIDTH / 8) + x1;
       uint8_t data = (idx < sizeof(_mono_buffer)) ? _mono_buffer[idx] : 0x00;
-      IO.send_data(~data);
+      epd_spi.send_data(~data);
     }
   }
 
-  IO.send_command(0x20);
+  epd_spi.send_command(SSD1680_CMD_UPDATE);
   _waitBusy("update partial");
-  //_sleep();
+  _sleep();
 }
 
 void Gdey029T94::_waitBusy(const char *message)
@@ -228,14 +252,16 @@ void Gdey029T94::_waitBusy(const char *message)
   ESP_LOGD(TAG, "_waitBusy for %s", message);
   int64_t time_since_boot = esp_timer_get_time();
 
-  while (1)
+  while (true)
   {
     if (gpio_get_level((gpio_num_t)CONFIG_EINK_BUSY) == 0)
       break;
-    vTaskDelay(1);
-    if (esp_timer_get_time() - time_since_boot > 1000000)
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+
+    if (esp_timer_get_time() - time_since_boot > GDEY029T94_BUSY_TIMEOUT_US)
     {
-      ESP_LOGD(TAG, "Busy Timeout");
+      ESP_LOGW(TAG, "Busy Timeout");
       break;
     }
   }
@@ -243,14 +269,16 @@ void Gdey029T94::_waitBusy(const char *message)
 
 void Gdey029T94::_sleep()
 {
-  IO.send_command(0x10); // deep sleep
-  IO.send_data(0x01);
+  epd_spi.send_command(SSD1680_CMD_SET_DEEP_SLEEP_MODE); // deep sleep
+  epd_spi.send_data(0x01);
 }
 
 void Gdey029T94::_rotate(uint16_t &x, uint16_t &y, uint16_t &w, uint16_t &h)
 {
   switch (getRotation())
   {
+  case 0:
+    break;
   case 1:
     swap(x, y);
     swap(w, h);
@@ -276,6 +304,8 @@ void Gdey029T94::drawPixel(int16_t x, int16_t y, uint16_t color)
   // check rotation, move pixel around if necessary
   switch (getRotation())
   {
+  case 0:
+    break;
   case 1:
     swap(x, y);
     x = GDEY029T94_VISIBLE_WIDTH - x - 1;
@@ -289,12 +319,13 @@ void Gdey029T94::drawPixel(int16_t x, int16_t y, uint16_t color)
     y = GDEY029T94_HEIGHT - y - 1;
     break;
   }
+
   uint16_t i = x / 8 + y * GDEY029T94_WIDTH / 8;
   uint8_t mask = 1 << (7 - x % 8);
 
   if (_mono_mode)
   {
-    if (color)
+    if (color == EPD_WHITE)
     {
       _mono_buffer[i] = _mono_buffer[i] | mask;
     }
@@ -335,113 +366,99 @@ void Gdey029T94::drawPixel(int16_t x, int16_t y, uint16_t color)
   }
 }
 
-// _InitDisplay generalizing names here
 void Gdey029T94::_wakeUp()
 {
-  IO.reset(10);
+  epd_spi.reset(GDEY029T94_HW_RESET_DELAY_MS);
   _waitBusy("RST reset");
-  IO.send_command(0x12); // SWRESET
+  epd_spi.send_command(SSD1680_CMD_SW_RESET); // SWRESET
   _waitBusy("SWRESET");
 
-  IO.send_command(0x01); // Driver output control
-  IO.send_data(0x27);
-  IO.send_data(0x01);
-  IO.send_data(0x00);
+  epd_spi.send_command(SSD1680_CMD_SET_DRIVER_OUTPUT_CONTROL); // Driver output control
+  epd_spi.send_data(0x27);
+  epd_spi.send_data(0x01);
+  epd_spi.send_data(0x00);
 
-  IO.send_command(0x11); // data entry mode
-  IO.send_data(0x01);
+  epd_spi.send_command(SSD1680_CMD_SET_DATA_ENTRY_MODE); // data entry mode
+  epd_spi.send_data(0x01);
 
-  IO.send_command(0x44); // set Ram-X address start/end position
-  IO.send_data(0x00);
-  IO.send_data(0x0F); // 0x0F-->(15+1)*8=128
+  epd_spi.send_command(SSD1680_CMD_SET_BORDER_WAVEFORM); // BorderWavefrom
+  epd_spi.send_data(0x05);
 
-  IO.send_command(0x45); // set Ram-Y address start/end position
-  IO.send_data(0x27);    // 0x0127-->(295+1)=296
-  IO.send_data(0x01);
-  IO.send_data(0x00);
-  IO.send_data(0x00);
+  epd_spi.send_command(SSD1680_CMD_SET_UPDATE_RAM); //  Display update control
+  epd_spi.send_data(0x00);
+  epd_spi.send_data(0x80);
 
-  IO.send_command(0x3C); // BorderWavefrom
-  IO.send_data(0x05);
+  epd_spi.send_command(SSD1680_CMD_SELECT_TEMPERATURE_SENSOR); // Read built-in temperature sensor
+  epd_spi.send_data(0x80);
 
-  IO.send_command(0x21); //  Display update control
-  IO.send_data(0x00);
-  IO.send_data(0x80);
+  epd_spi.send_command(SSD1680_CMD_SET_RAM_X_START_END_ADDRESS); // set Ram-X address start/end position
+  epd_spi.send_data(0x00);
+  epd_spi.send_data(0x0F); // 0x0F-->(15+1)*8=128
 
-  IO.send_command(0x18); // Read built-in temperature sensor
-  IO.send_data(0x80);
-
-  IO.send_command(0x44); // set Ram-X address start/end position
-  IO.send_data(0x00);
-  IO.send_data(0x0F); // 0x0F-->(15+1)*8=128
-
-  IO.send_command(0x45); // set Ram-Y address start/end position
-  IO.send_data(0x27);    // 0x0127-->(295+1)=296
-  IO.send_data(0x01);
-  IO.send_data(0x00);
-  IO.send_data(0x00);
+  epd_spi.send_command(SSD1680_CMD_SET_RAM_Y_START_END_ADDRESS); // set Ram-Y address start/end position
+  epd_spi.send_data(0x27);                                       // 0x0127-->(295+1)=296
+  epd_spi.send_data(0x01);
+  epd_spi.send_data(0x00);
+  epd_spi.send_data(0x00);
   _waitBusy("wakeup CMDs");
 }
 
 void Gdey029T94::_wakeUpGrayMode()
 {
-  IO.reset(10);
+  epd_spi.reset(GDEY029T94_HW_RESET_DELAY_MS);
   _waitBusy("RST reset");
-  IO.send_command(0x12); // SWRESET
+  epd_spi.send_command(SSD1680_CMD_SW_RESET); // SWRESET
   _waitBusy("SWRESET");
 
-  IO.send_command(0x3C); // BorderWavefrom
-  IO.send_data(0x05);
+  epd_spi.send_command(SSD1680_CMD_SET_BORDER_WAVEFORM); // BorderWavefrom
+  epd_spi.send_data(0x05);
 
-  IO.send_command(0x2C);               // VCOM Voltage
-  IO.send_data(lut_4_grays.data[158]); // 0x1C
+  epd_spi.send_command(SSD1680_CMD_WRITE_VCOM_REGISTER); // VCOM Voltage
+  epd_spi.send_data(lut_4_grays.data[158]);              // 0x1C
 
-  IO.send_command(0x3F); // EOPQ
-  IO.send_data(lut_4_grays.data[153]);
+  epd_spi.send_command(SSD1680_CMD_SET_LUT_END_OPTION); // EOPQ
+  epd_spi.send_data(lut_4_grays.data[153]);
 
-  IO.send_command(0x03); // VGH
-  IO.send_data(lut_4_grays.data[154]);
+  epd_spi.send_command(SSD1680_CMD_SET_GATE_DRIVING_VOLTAGE); // VGH
+  epd_spi.send_data(lut_4_grays.data[154]);
 
-  IO.send_command(0x04);               // Check what is this about
-  IO.send_data(lut_4_grays.data[155]); // VSH1
-  IO.send_data(lut_4_grays.data[156]); // VSH2
-  IO.send_data(lut_4_grays.data[157]); // VSL
+  epd_spi.send_command(SSD1680_CMD_SET_SOURCE_DRIVING_VOLTAGE); // Check what is this about
+  epd_spi.send_data(lut_4_grays.data[155]);                     // VSH1
+  epd_spi.send_data(lut_4_grays.data[156]);                     // VSH2
+  epd_spi.send_data(lut_4_grays.data[157]);                     // VSL
 
   // LUT init table for 4 gray. Check if it's needed!
-  IO.send_command(lut_4_grays.cmd); // boost
+  epd_spi.send_command(lut_4_grays.cmd); // boost
   for (int i = 0; i < lut_4_grays.databytes; ++i)
   {
-    IO.send_data(lut_4_grays.data[i]);
+    epd_spi.send_data(lut_4_grays.data[i]);
   }
 }
 
 void Gdey029T94::_SetRamArea(uint8_t Xstart, uint8_t Xend, uint8_t Ystart, uint8_t Ystart1, uint8_t Yend, uint8_t Yend1)
 {
-  if (debug_enabled)
-  {
-    printf("_SetRamArea(xS:%d,xE:%d,Ys:%d,Y1s:%d,Ye:%d,Ye1:%d)\n", Xstart, Xend, Ystart, Ystart1, Yend, Yend1);
-  }
-  IO.send_command(0x44);
-  IO.send_data(Xstart);
-  IO.send_data(Xend);
-  IO.send_command(0x45);
-  IO.send_data(Ystart);
-  IO.send_data(Ystart1);
-  IO.send_data(Yend);
-  IO.send_data(Yend1);
+
+  ESP_LOGD(TAG, "_SetRamArea(xS:%d,xE:%d,Ys:%d,Y1s:%d,Ye:%d,Ye1:%d)\n", Xstart, Xend, Ystart, Ystart1, Yend, Yend1);
+
+  epd_spi.send_command(SSD1680_CMD_SET_RAM_X_START_END_ADDRESS);
+  epd_spi.send_data(Xstart);
+  epd_spi.send_data(Xend);
+  epd_spi.send_command(SSD1680_CMD_SET_RAM_Y_START_END_ADDRESS);
+  epd_spi.send_data(Ystart);
+  epd_spi.send_data(Ystart1);
+  epd_spi.send_data(Yend);
+  epd_spi.send_data(Yend1);
 }
 
 void Gdey029T94::_SetRamPointer(uint8_t addrX, uint8_t addrY, uint8_t addrY1)
 {
-  if (debug_enabled)
-  {
-    printf("_SetRamPointer(addrX:%d,addrY:%d,addrY1:%d)\n", addrX, addrY, addrY1);
-  }
-  IO.send_command(0x4e);
-  IO.send_data(addrX);
-  IO.send_command(0x4f);
-  IO.send_data(addrY);
-  IO.send_data(addrY1);
+  ESP_LOGD(TAG, "_SetRamPointer(addrX:%d,addrY:%d,addrY1:%d)\n", addrX, addrY, addrY1);
+
+  epd_spi.send_command(SSD1680_CMD_SET_RAM_X_COUNTER);
+  epd_spi.send_data(addrX);
+  epd_spi.send_command(SSD1680_CMD_SET_RAM_Y_COUNTER);
+  epd_spi.send_data(addrY);
+  epd_spi.send_data(addrY1);
 }
 
 // We use only 0x03: At the moment this method is not used
@@ -449,36 +466,39 @@ void Gdey029T94::_SetRamPointer(uint8_t addrX, uint8_t addrY, uint8_t addrY1)
 // ram_entry_mode = 0x00; // y-decrement, x-decrement
 // ram_entry_mode = 0x01; // y-decrement, x-increment
 // ram_entry_mode = 0x02; // y-increment, x-decrement
-void Gdey029T94::_setRamDataEntryMode(uint8_t em)
+void Gdey029T94::_setRamDataEntryMode(uint8_t ram_entry_mode)
 {
   const uint16_t xPixelsPar = GDEY029T94_X_PIXELS - 1;
   const uint16_t yPixelsPar = GDEY029T94_Y_PIXELS - 1;
-  em = gx_uint16_min(em, 0x03);
-  IO.send_command(0x11);
-  IO.send_data(em);
-  switch (em)
+  ram_entry_mode = gx_uint16_min(ram_entry_mode, 0x03);
+  epd_spi.send_command(SSD1680_CMD_SET_DATA_ENTRY_MODE);
+  epd_spi.send_data(ram_entry_mode);
+
+  switch (ram_entry_mode)
   {
   case 0x00:                                                                           // x decrease, y decrease
-    _SetRamArea(xPixelsPar / 8, 0x00, yPixelsPar % 256, yPixelsPar / 256, 0x00, 0x00); // X-source area,Y-gate area
+    _SetRamArea(xPixelsPar / 8, 0x00, yPixelsPar % 256, yPixelsPar / 256, 0x00, 0x00); // X-source area, Y-gate area
     _SetRamPointer(xPixelsPar / 8, yPixelsPar % 256, yPixelsPar / 256);                // set ram
     break;
   case 0x01:                                                                           // x increase, y decrease : as in demo code
-    _SetRamArea(0x00, xPixelsPar / 8, yPixelsPar % 256, yPixelsPar / 256, 0x00, 0x00); // X-source area,Y-gate area
+    _SetRamArea(0x00, xPixelsPar / 8, yPixelsPar % 256, yPixelsPar / 256, 0x00, 0x00); // X-source area, Y-gate area
     _SetRamPointer(0x00, yPixelsPar % 256, yPixelsPar / 256);                          // set ram
     break;
   case 0x02:                                                                           // x decrease, y increase
-    _SetRamArea(xPixelsPar / 8, 0x00, 0x00, 0x00, yPixelsPar % 256, yPixelsPar / 256); // X-source area,Y-gate area
+    _SetRamArea(xPixelsPar / 8, 0x00, 0x00, 0x00, yPixelsPar % 256, yPixelsPar / 256); // X-source area, Y-gate area
     _SetRamPointer(xPixelsPar / 8, 0x00, 0x00);                                        // set ram
     break;
   case 0x03:                                                                           // x increase, y increase : normal mode
-    _SetRamArea(0x00, xPixelsPar / 8, 0x00, 0x00, yPixelsPar % 256, yPixelsPar / 256); // X-source area,Y-gate area
+    _SetRamArea(0x00, xPixelsPar / 8, 0x00, 0x00, yPixelsPar % 256, yPixelsPar / 256); // X-source area, Y-gate area
     _SetRamPointer(0x00, 0x00, 0x00);                                                  // set ram
     break;
   }
 }
 
 /**
- * @brief Sets private _mode. When true is monochrome mode
+ * @brief Sets monochrome mode flag.
+ *
+ * @param[in] mode true to use monochrome mode, false to use 4 gray mode.
  */
 void Gdey029T94::setMonoMode(bool mode)
 {

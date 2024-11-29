@@ -27,7 +27,7 @@
 #if defined CONFIG_IDF_TARGET_ESP32 && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "soc/rtc_wdt.h"
 #endif
-#include <gdew_colors.h>
+#include <gdew_4grays.h>
 #include <esp_timer.h>
 
 #define GDEY075T7_WIDTH 800
@@ -43,7 +43,7 @@
 class Gdey075T7 : public Epd
 {
 public:
-  Gdey075T7(EpdSpi &IO);
+  Gdey075T7(EpdSpi &epd_spi);
   uint8_t colors_supported = 1;
 
   void drawPixel(int16_t x, int16_t y, uint16_t color); // Override GFX own drawPixel method
@@ -61,7 +61,7 @@ public:
   void setRawBuf(uint32_t position, uint8_t value);
 
 private:
-  EpdSpi &IO;
+  EpdSpi &epd_spi;
 
   uint8_t _buffer[GDEY075T7_BUFFER_SIZE];
   // Place _buffer in external RAM
