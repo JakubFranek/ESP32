@@ -14,13 +14,14 @@
 class EpdSpi
 {
 public:
-  spi_device_handle_t spi;
-  const char *TAG = "EpdSpi"; // needed for logging
-
   void send_command(const uint8_t cmd); // Should override if IoInterface is there
   void send_data(uint8_t data);
   void send_data(const uint8_t *data, int len);
   void reset(uint8_t millis);
   void initialize(uint8_t frequency);
+
+private:
+  spi_device_handle_t spi;
+  const char *TAG = "EpdSpi"; // needed for logging
 };
 #endif

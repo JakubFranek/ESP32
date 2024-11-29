@@ -11,6 +11,15 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
+/**
+ * @brief Initializes the SPI interface for the EPD.
+ *
+ * This function sets up the GPIO pins and SPI bus for communication with the
+ * EPD. It configures the chip select (CS), data/command (DC), reset (RST), and
+ * busy pins, and initializes the SPI bus with the specified frequency.
+ *
+ * @param frequency_MHz The SPI clock frequency in megahertz (default is 4 MHz).
+ */
 void EpdSpi::initialize(uint8_t frequency_MHz = 4)
 {
     gpio_set_direction((gpio_num_t)CONFIG_EINK_SPI_CS, GPIO_MODE_OUTPUT);
@@ -50,21 +59,37 @@ void EpdSpi::initialize(uint8_t frequency_MHz = 4)
     ESP_LOGI(TAG, "SPI initialized at %d MHz", frequency_MHz);
 }
 
-void EpdSpi::send_command(const uint8_t cmd)
+/**
+ * @brief Send a single byte command over SPI to the EPD
+ *
+ * The DC pin is set low to indicate a command is being sent.
+ * After the command is sent the DC pin is set high to indicate data is being sent.
+ *
+ * @note This function does not check if the EPD is busy.
+ * The caller should check the EPD busy pin before calling this function.
+ *
+ * @param command The 8-bit command to send
+ */
+void EpdSpi::send_command(const uint8_t command)
 {
-    ESP_LOGD(TAG, "Sending command: 0x%x", cmd);
+    ESP_LOGD(TAG, "Sending command: 0x%x", command);
 
     spi_transaction_t t;
 
     memset(&t, 0, sizeof(t)); // Zero out the transaction
     t.length = 8;             // Command is 8 bits
-    t.tx_buffer = &cmd;       // The data is the cmd itself
+    t.tx_buffer = &command;   // The data is the command itself
 
     gpio_set_level((gpio_num_t)CONFIG_EINK_DC, 0);
     ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
     gpio_set_level((gpio_num_t)CONFIG_EINK_DC, 1);
 }
 
+/**
+ * @brief Send a single byte of data over SPI to the EPD
+ *
+ * @param data The byte of data to send
+ */
 void EpdSpi::send_data(uint8_t data)
 {
     ESP_LOGD(TAG, "Sending data: 0x%x", data);
@@ -72,10 +97,16 @@ void EpdSpi::send_data(uint8_t data)
     spi_transaction_t t;
     memset(&t, 0, sizeof(t)); // Zero out the transaction
     t.length = 8;             // Command is 8 bits
-    t.tx_buffer = &data;      // The data is the cmd itself
+    t.tx_buffer = &data;
     ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
 }
 
+/**
+ * @brief Send an array of data to the EPD over SPI.
+ *
+ * @param data  Pointer to the data to be sent.
+ * @param length  The length of the data to be sent, in bytes.
+ */
 void EpdSpi::send_data(const uint8_t *data, int length)
 {
     if (length == 0)
@@ -84,12 +115,20 @@ void EpdSpi::send_data(const uint8_t *data, int length)
     ESP_LOGD(TAG, "Sending array of data, length: %d", length);
     spi_transaction_t t;
 
-    memset(&t, 0, sizeof(t));                              // Zero out the transaction
-    t.length = length * 8;                                 // Len is in bytes, transaction length is in bits.
-    t.tx_buffer = data;                                    // Data
-    ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t)); // Transmit!
+    memset(&t, 0, sizeof(t)); // Zero out the transaction
+    t.length = length * 8;    // Len is in bytes, transaction length is in bits.
+    t.tx_buffer = data;
+    ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
 }
 
+/**
+ * @brief Performs a hardware reset of the EPD
+ *
+ * The reset line is pulled low for the given amount of time, and then released.
+ * The EPD is then given the same amount of time to do its internal reset.
+ *
+ * @param wait_ms The amount of time to hold the reset line low and then high, in milliseconds.
+ */
 void EpdSpi::reset(uint8_t wait_ms = 20)
 {
     gpio_set_level((gpio_num_t)CONFIG_EINK_RST, 0);
