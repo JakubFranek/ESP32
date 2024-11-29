@@ -22,6 +22,6 @@ public:
 
 private:
   spi_device_handle_t spi;
-  const char *TAG = "EpdSpi"; // needed for logging
+  static constexpr const char *TAG = "EpdSpi"; // needed for logging
 };
 #endif
