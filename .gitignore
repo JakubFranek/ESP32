@@ -6,3 +6,4 @@ sdkconfig.old
 .espressif
 esp
 .aux
+secrets.h
