@@ -5,3 +5,4 @@ sdkconfig.old
 .devcontainer
 .espressif
 esp
+.aux
