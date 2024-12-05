@@ -631,15 +631,20 @@ Scd4xStatus scd4x_get_serial_number(Scd4xDevice *device, uint64_t *serial_number
 
     // Copy the serial number to the output buffer, skipping the checksum bytes
     uint8_t input_index = 0, output_index = 0;
+    uint8_t serial_number_bytes[SCD4X_SERIAL_NUMBER_LENGTH / 3 * 2];
     while (output_index < SCD4X_SERIAL_NUMBER_LENGTH)
     {
         if (input_index % 3 != 2)
         {
-            serial_number[output_index] = rx_data[input_index];
+            serial_number_bytes[output_index] = rx_data[input_index];
             output_index++;
         }
         input_index++;
     }
+
+    *serial_number = (uint64_t)serial_number_bytes[0] << 40 | (uint64_t)serial_number_bytes[1] << 32 |
+                     (uint32_t)serial_number_bytes[2] << 24 | (uint32_t)serial_number_bytes[3] << 16 |
+                     (uint32_t)serial_number_bytes[4] << 8 | (uint32_t)serial_number_bytes[5];
 
     return SCD4X_SUCCESS;
 }
@@ -650,16 +655,17 @@ Scd4xStatus scd4x_get_serial_number(Scd4xDevice *device, uint64_t *serial_number
  * WARNING: This function contains a wait time of 10 seconds!
  *
  * @param[in] device The `Scd4xDevice` struct containing the I2C functions.
- * @param[out] test_result Set to `true` if the self-test was successful, `false` otherwise.
  *
  * @retval `SCD4X_SUCCESS` The self-test was completed. The result .
  * @retval `SCD4X_I2C_ERROR` An I2C communication error occurred.
  * @retval `SCD4X_POINTER_NULL` The `device` or `test_result` pointer is `NULL`.
  * @retval `SCD4X_CRC_FAILURE` CRC verification failed.
+ * @retval `SCD4X_SELF_TEST_FAILURE` The self-test failed.
  */
 Scd4xStatus scd4x_perform_self_test(Scd4xDevice *device)
 {
     SCD4X_CHECK_STATUS(scd4x_check_device(device));
+
     SCD4X_CHECK_STATUS(scd4x_send_i2c_command(device, (uint8_t[]){SCD4X_CMD_PERFORM_SELF_TEST}));
 
     device->delay_ms(10000);
@@ -1079,7 +1085,7 @@ static Scd4xStatus scd4x_check_device(Scd4xDevice *device)
  */
 static Scd4xStatus scd4x_send_i2c_command(Scd4xDevice *device, uint8_t *command)
 {
-    if (device->i2c_write(SCD4X_I2C_ADDRESS, command, SCD4X_I2C_CMD_LENGTH) != 0)
+    if (device->i2c_write(SCD4X_I2C_ADDRESS, command, (size_t)SCD4X_I2C_CMD_LENGTH) != 0)
         return SCD4X_I2C_ERROR;
 
     return SCD4X_SUCCESS;

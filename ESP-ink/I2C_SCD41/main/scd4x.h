@@ -21,10 +21,10 @@
 /* --- Function pointers --- */
 // Target functions must return int8_t error code, 0 is the only accepted success value
 
-typedef int8_t (*scd4x_i2c_write_t)(uint8_t address, const uint8_t *payload, uint8_t length);
-typedef int8_t (*scd4x_i2c_read_t)(uint8_t address, uint8_t *payload, uint8_t length);
+typedef int8_t (*scd4x_i2c_write_t)(uint8_t address, const uint8_t *payload, size_t length);
+typedef int8_t (*scd4x_i2c_read_t)(uint8_t address, uint8_t *payload, size_t length);
 typedef int8_t (*scd4x_delay_ms_t)(uint16_t ms);
-typedef int8_t (*scd4x_calculate_crc_t)(const uint8_t *data, uint8_t length, uint8_t polynomial, uint8_t *result);
+typedef int8_t (*scd4x_calculate_crc_t)(const uint8_t *data, size_t length, uint8_t polynomial, uint8_t *result);
 
 /* --- Types --- */
 
