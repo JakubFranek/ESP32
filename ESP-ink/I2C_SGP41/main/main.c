@@ -19,16 +19,20 @@ i2c_master_bus_config_t i2c_config = {
     .clk_source = I2C_CLK_SRC_DEFAULT,
     .glitch_ignore_cnt = 7,
     .intr_priority = 1,
-    .trans_queue_depth = 0};
+    .trans_queue_depth = 0,
+};
 i2c_device_config_t sgp41_config = {
     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
     .device_address = SGP41_I2C_ADDRESS,
     .scl_speed_hz = 100000,
-    .scl_wait_us = 0};
+    .scl_wait_us = 0,
+};
 i2c_master_dev_handle_t sgp41_device_handle;
+
 Sgp41Device sgp41_device = {
     .i2c_write = &sgp41_i2c_write,
-    .i2c_read = &sgp41_i2c_read};
+    .i2c_read = &sgp41_i2c_read,
+};
 uint64_t sgp41_serial_number;
 Sgp41Status sgp41_status;
 Sgp41Data sgp41_data;

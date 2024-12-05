@@ -203,8 +203,6 @@ Sgp41Status sgp41_execute_conditioning(Sgp41Device *device)
 Sgp41Status sgp41_measure_raw_signals(Sgp41Device *device, float *temp_celsius, float *rel_hum_pct)
 {
     SGP41_CHECK_STATUS(sgp41_check_device(device));
-    SGP41_CHECK_NULL(temp_celsius);
-    SGP41_CHECK_NULL(rel_hum_pct);
 
     uint8_t tx_data[8] = {SGP41_CMD_MEAS_RAW, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t rel_hum_data[3] = {SGP41_DEF_RH};
