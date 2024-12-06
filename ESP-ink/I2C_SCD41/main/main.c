@@ -121,8 +121,8 @@ int8_t scd4x_i2c_read(uint8_t address, uint8_t *payload, size_t length)
 void print_scd4x_data(Scd4xData *data)
 {
     printf("CO_2 concentration = %d ppm\n", data->co2_ppm);
-    printf("Temperature = %f ug/m^3\n", data->temperature / 100.0);
-    printf("Relative humidity = %f ug/m^3\n", data->relative_humidity / 100.0);
+    printf("Temperature = %f °C\n", data->temperature / 100.0);
+    printf("Relative humidity = %f %%\n", data->relative_humidity / 100.0);
 }
 
 int8_t scd4x_delay_ms(uint16_t ms)
