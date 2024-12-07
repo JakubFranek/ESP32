@@ -39,7 +39,7 @@ void EpdSpi::initialize(uint8_t frequency_MHz = 4)
         .sclk_io_num = CONFIG_EINK_SPI_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 0,
+        .max_transfer_sz = 1000,
     };
 
     // Config Frequency and SS GPIO
@@ -99,6 +99,7 @@ void EpdSpi::send_data(uint8_t data)
     memset(&t, 0, sizeof(t)); // Zero out the transaction
     t.length = 8;             // Command is 8 bits
     t.tx_buffer = &data;
+
     ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
 }
 
@@ -108,7 +109,7 @@ void EpdSpi::send_data(uint8_t data)
  * @param data  Pointer to the data to be sent.
  * @param length  The length of the data to be sent, in bytes.
  */
-void EpdSpi::send_data(const uint8_t *data, int length)
+void EpdSpi::send_data(const uint8_t *data, size_t length)
 {
     if (length == 0)
         return;
@@ -120,16 +121,11 @@ void EpdSpi::send_data(const uint8_t *data, int length)
     // Split larger transfers into smaller chunks
     for (size_t i = 0; i < length; i += SOC_SPI_MAXIMUM_BUFFER_SIZE)
     {
-        memset(&t, 0, sizeof(t));                                                           // Zero out the transaction
-        t.length = std::min(SOC_SPI_MAXIMUM_BUFFER_SIZE * 8, (int)length * 8 - (int)i * 8); // Convert to bits
+        memset(&t, 0, sizeof(t));                                                // Zero out the transaction
+        t.length = 8 * std::min(SOC_SPI_MAXIMUM_BUFFER_SIZE, (int)(length - i)); // Convert to bits
         t.tx_buffer = data + i;
         ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
     }
-
-    /*memset(&t, 0, sizeof(t)); // Zero out the transaction
-    t.length = length * 8;    // Len is in bytes, transaction length is in bits.
-    t.tx_buffer = data;
-    ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));*/
 }
 
 /**

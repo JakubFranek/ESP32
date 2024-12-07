@@ -13,10 +13,10 @@
 #include "Fonts/FreeSans9pt7b.h"
 #include "Fonts/FreeSans12pt7b.h"
 
-#include "displays/goodisplay/gdey029T94.h"
+#include "displays/goodisplay/gdey075T7.h"
 
 EpdSpi epd_spi;
-Gdey029T94 display(epd_spi);
+Gdey075T7 display(epd_spi);
 
 extern "C"
 {
@@ -39,12 +39,12 @@ void app_main(void)
 
     int16_t x1, y1;
     uint16_t w, h;
-    display.getTextBounds("First line test!", 0, 0, &x1, &y1, &w, &h);
+    display.getTextBounds("This is a test!", 0, 0, &x1, &y1, &w, &h);
     uint16_t x = -x1;
     uint16_t y = -y1;
     display.setCursor(x, y);
 
-    display.println("First line test!");
+    display.println("This is a test!");
     display.drawLine(0, 100, display.width(), 100, EPD_BLACK);
     display.draw_centered_text(&FreeSans9pt7b, 0, 0, display.width(), display.height(), "THIS IS THE CENTER!");
 
