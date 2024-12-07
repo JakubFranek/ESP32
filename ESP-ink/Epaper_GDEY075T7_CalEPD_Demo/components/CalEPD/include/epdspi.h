@@ -19,7 +19,7 @@ public:
   void send_command(const uint8_t cmd); // Should override if IoInterface is there
   void send_data(uint8_t data);
   void send_data(const uint8_t *data, size_t len);
-  void reset(uint8_t millis);
+  void reset(uint8_t wait_ms);
   void initialize(uint8_t frequency);
 
 private:

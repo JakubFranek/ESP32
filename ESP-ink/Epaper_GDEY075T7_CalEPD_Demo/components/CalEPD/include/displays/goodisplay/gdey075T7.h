@@ -11,15 +11,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <string.h>
+
 #include "freertos/FreeRTOS.h"
 #include "esp_system.h"
 #include <stdint.h>
-#include <math.h>
+
 #include "sdkconfig.h"
 #include "esp_log.h"
-#include <string.h>
+
 #include <epd.h>
-#include <Adafruit_GFX.h>
+#include "Adafruit_GFX.h"
 #include <epdspi.h>
 #include <gdew_4grays.h>
 #include <esp_timer.h>
@@ -27,12 +30,10 @@
 #define GDEY075T7_WIDTH 800
 #define GDEY075T7_HEIGHT 480
 
-// EPD comment: Pixel number expressed in bytes; this is neither the buffer size nor the size of the buffer in the controller
-// We are not adding page support so here this is our Buffer size
 #define GDEY075T7_BUFFER_SIZE (uint32_t(GDEY075T7_WIDTH) * uint32_t(GDEY075T7_HEIGHT) / 8)
-// 8 pix of this color in a buffer byte:
-#define GDEY075T7_8PIX_BLACK 0x00
-#define GDEY075T7_8PIX_WHITE 0xFF
+
+#define GDEY075T7_8PX_BLACK 0x00
+#define GDEY075T7_8PX_WHITE 0xFF
 
 // Shared struct(s) for different models
 typedef struct
@@ -134,24 +135,17 @@ public:
 
   void drawPixel(int16_t x, int16_t y, uint16_t color); // Override GFX own drawPixel method
 
-  // EPD tests
   void initialize();
 
   void initPartialUpdate();
-  // Partial update of rectangle from buffer to screen, does not power off
   void updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation);
   void fillScreen(uint16_t color);
-  void fillRawBufferPos(uint16_t index, uint8_t value);
-  void fillRawBufferImage(uint8_t image[], uint16_t size);
   void update();
-  void setRawBuf(uint32_t position, uint8_t value);
 
 private:
   EpdSpi &epd_spi;
 
   uint8_t _buffer[GDEY075T7_BUFFER_SIZE];
-  // Place _buffer in external RAM
-  // uint8_t* _buffer = (uint8_t*)heap_caps_malloc(GDEY075T7_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
 
   bool _using_partial_mode = false;
   bool _initial = true;

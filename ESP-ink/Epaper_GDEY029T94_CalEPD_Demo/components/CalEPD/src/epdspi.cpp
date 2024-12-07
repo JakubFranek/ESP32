@@ -125,11 +125,6 @@ void EpdSpi::send_data(const uint8_t *data, int length)
         t.tx_buffer = data + i;
         ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
     }
-
-    /*memset(&t, 0, sizeof(t)); // Zero out the transaction
-    t.length = length * 8;    // Len is in bytes, transaction length is in bits.
-    t.tx_buffer = data;
-    ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));*/
 }
 
 /**

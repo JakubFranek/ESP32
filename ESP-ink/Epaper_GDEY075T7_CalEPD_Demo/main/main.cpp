@@ -15,6 +15,8 @@
 
 #include "displays/goodisplay/gdey075T7.h"
 
+#define TEST_TEXT "TEST 2"
+
 EpdSpi epd_spi;
 Gdey075T7 display(epd_spi);
 
@@ -31,7 +33,7 @@ void app_main(void)
     gpio_set_level(GPIO_NUM_2, 1);
 
     display.initialize();
-    display.setRotation(3);
+    display.setRotation(2);
 
     display.fillScreen(EPD_WHITE);
     display.setTextColor(EPD_BLACK);
@@ -39,12 +41,12 @@ void app_main(void)
 
     int16_t x1, y1;
     uint16_t w, h;
-    display.getTextBounds("This is a test!", 0, 0, &x1, &y1, &w, &h);
+    display.getTextBounds(TEST_TEXT, 0, 0, &x1, &y1, &w, &h);
     uint16_t x = -x1;
     uint16_t y = -y1;
     display.setCursor(x, y);
 
-    display.println("This is a test!");
+    display.println(TEST_TEXT);
     display.drawLine(0, 100, display.width(), 100, EPD_BLACK);
     display.draw_centered_text(&FreeSans9pt7b, 0, 0, display.width(), display.height(), "THIS IS THE CENTER!");
 
