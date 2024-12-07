@@ -10,7 +10,7 @@
 #include "sdkconfig.h"
 
 #include "gfxfont.h"
-#include "Fonts/FreeSans9pt7b.h"
+#include "Fonts/FreeSansBold24pt7b.h"
 #include "Fonts/FreeSans12pt7b.h"
 
 #include "displays/goodisplay/gdey075T7.h"
@@ -37,7 +37,8 @@ void app_main(void)
 
     display.fillScreen(EPD_WHITE);
     display.setTextColor(EPD_BLACK);
-    display.setFont(&FreeSans12pt7b);
+    display.setFont(&FreeSansBold24pt7b);
+    display.setTextSize(2);
 
     int16_t x1, y1;
     uint16_t w, h;
@@ -48,7 +49,7 @@ void app_main(void)
 
     display.println(TEST_TEXT);
     display.drawLine(0, 100, display.width(), 100, EPD_BLACK);
-    display.draw_centered_text(&FreeSans9pt7b, 0, 0, display.width(), display.height(), "THIS IS THE CENTER!");
+    display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
 
     display.update();
 

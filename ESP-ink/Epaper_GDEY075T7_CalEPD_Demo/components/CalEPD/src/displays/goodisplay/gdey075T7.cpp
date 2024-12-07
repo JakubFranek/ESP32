@@ -15,6 +15,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#define UC8179_SPI_FREQUENCY_MHZ 20
+#define GDEY075T7_BUSY_TIMEOUT_US 10000000 // 10 s
+
 #define UC8179_CMD_PANEL_SETTING 0x00
 #define UC8179_CMD_POWER_SETTING 0x01
 #define UC8179_CMD_POWER_OFF 0x02
@@ -89,10 +92,7 @@ DRAM_ATTR const epd_init_42 Gdey075T7::lut_22_LUTKW_partial = {
     UC8179_CMD_LUTKW, {0x80, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_23_LUTWK_partial = {
-    UC8179_CMD_LUTWK, {0x40, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-
-                      },
-    42};
+    UC8179_CMD_LUTWK, {0x40, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_24_LUTKK_partial = {
     UC8179_CMD_LUTKK, {0x00, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
@@ -100,32 +100,13 @@ DRAM_ATTR const epd_init_42 Gdey075T7::lut_24_LUTKK_partial = {
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_25_LUTBD_partial = {
     UC8179_CMD_LUT_BORDER, {0x00, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
-// 0x07 (2nd) VGH=20V,VGL=-20V
-// 0x3f (1st) VDH= 15V
-// 0x3f (2nd) VDH=-15V
-DRAM_ATTR const epd_power_4 Gdey075T7::epd_wakeup_power = {
-    0x01, {0x07, 0x07, 0x3f, 0x3f}, 4};
-
-DRAM_ATTR const epd_init_1 Gdey075T7::epd_panel_setting_full = {
-    0x00, {0x1f}, 1};
-
-DRAM_ATTR const epd_init_1 Gdey075T7::epd_panel_setting_partial = {
-    0x00, {0x3f}, 1};
-
-DRAM_ATTR const epd_init_4 Gdey075T7::epd_resolution = {
-    0x61, {GDEY075T7_WIDTH / 256, // source 800
-           GDEY075T7_WIDTH % 256,
-           GDEY075T7_HEIGHT / 256, // gate 480
-           GDEY075T7_HEIGHT % 256},
-    4};
-
 Gdey075T7::Gdey075T7(EpdSpi &dio) : Adafruit_GFX(GDEY075T7_WIDTH, GDEY075T7_HEIGHT),
                                     Epd(GDEY075T7_WIDTH, GDEY075T7_HEIGHT), epd_spi(dio) {};
 
 void Gdey075T7::initPartialUpdate()
 {
-  epd_spi.send_command(epd_panel_setting_partial.cmd);  // panel setting
-  epd_spi.send_data(epd_panel_setting_partial.data[0]); // partial update LUT from registers
+  epd_spi.send_command(UC8179_CMD_PANEL_SETTING);
+  epd_spi.send_data(0x3F); // LUT selection: REG; B&W mode; Gate scan direction: up; Source shift direction: right; Booster: on; Soft reset: no effect
 
   epd_spi.send_command(UC8179_CMD_VCOM_DC_SETTING);
   epd_spi.send_data(0x26); // VCOM -2.00 V
@@ -154,18 +135,16 @@ void Gdey075T7::initPartialUpdate()
   epd_spi.send_data(lut_25_LUTBD_partial.data, lut_25_LUTBD_partial.databytes);
 }
 
-// Initialize the display
 void Gdey075T7::initialize()
 {
-  // Initialize SPI at 4MHz frequency
-  epd_spi.initialize(4);
+  epd_spi.initialize(UC8179_SPI_FREQUENCY_MHZ);
   fillScreen(EPD_WHITE);
   _wakeUp();
 }
 
 void Gdey075T7::fillScreen(uint16_t color)
 {
-  uint8_t data = (color == EPD_BLACK) ? GDEY075T7_8PX_BLACK : GDEY075T7_8PX_WHITE;
+  uint8_t data = (color == EPD_BLACK) ? EPD_BLACK : EPD_WHITE;
   for (uint16_t x = 0; x < sizeof(_buffer); x++)
   {
     _buffer[x] = data;
@@ -190,7 +169,7 @@ void Gdey075T7::_wakeUp()
 
   epd_spi.send_command(UC8179_CMD_POWER_ON); // POWER ON
 
-  _waitBusy("Command: Power on");
+  _waitBusy("Power On command (_wakeUp)");
 
   epd_spi.send_command(UC8179_CMD_PANEL_SETTING);
   epd_spi.send_data(0x1F); // LUT selection: OTP; B&W mode; Gate scan direction: up; Source shift direction: right; Booster: on; Soft reset: no effect
@@ -237,7 +216,7 @@ void Gdey075T7::update()
   }
 
   epd_spi.send_command(UC8179_CMD_DISPLAY_REFRESH);
-  _waitBusy("update");
+  _waitBusy("Display Refresh command (_update)");
   _sleep();
 }
 
@@ -302,7 +281,7 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
     }
   }
   epd_spi.send_command(UC8179_CMD_DISPLAY_REFRESH);
-  _waitBusy("updateWindow");
+  _waitBusy("Display Refresh command (updateWindow)");
   epd_spi.send_command(UC8179_CMD_PARTIAL_OUT);
 
   vTaskDelay(GDEY075T7_PU_DELAY / portTICK_PERIOD_MS);
@@ -317,11 +296,11 @@ void Gdey075T7::_waitBusy(const char *message)
     if (gpio_get_level((gpio_num_t)CONFIG_EINK_BUSY) == 1)
       break;
 
-    vTaskDelay(1);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
-    if (esp_timer_get_time() - time_since_boot > 20000000)
+    if (esp_timer_get_time() - time_since_boot > GDEY075T7_BUSY_TIMEOUT_US)
     {
-      ESP_LOGW(TAG, "Busy Timeout");
+      ESP_LOGW(TAG, "Busy Timeout: %s", message);
       break;
     }
   }
@@ -330,7 +309,7 @@ void Gdey075T7::_waitBusy(const char *message)
 void Gdey075T7::_sleep()
 {
   epd_spi.send_command(UC8179_CMD_POWER_OFF);
-  _waitBusy("Command: Power off");
+  _waitBusy("Power off command (_sleep)");
   epd_spi.send_command(UC8179_CMD_DEEP_SLEEP);
   epd_spi.send_data(0xA5); // Magic number to enter deep sleep as defined in UC8179 datasheet
 }
