@@ -39,12 +39,21 @@ void EpdSpi::initialize(uint8_t frequency_MHz = 4)
         .sclk_io_num = CONFIG_EINK_SPI_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
+        .data4_io_num = -1,
+        .data5_io_num = -1,
+        .data6_io_num = -1,
+        .data7_io_num = -1,
         .max_transfer_sz = 1000,
     };
 
     // Config Frequency and SS GPIO
     spi_device_interface_config_t devcfg = {
-        .mode = 0, // SPI mode 0
+        .command_bits = 0,
+        .address_bits = 0,
+        .dummy_bits = 0,
+        .mode = 0,
+        .clock_source = SPI_CLK_SRC_DEFAULT,
+        .duty_cycle_pos = 128,
         .cs_ena_pretrans = 0,
         .cs_ena_posttrans = 0,
         .clock_speed_hz = frequency_MHz * 1000000,
@@ -52,6 +61,8 @@ void EpdSpi::initialize(uint8_t frequency_MHz = 4)
         .spics_io_num = CONFIG_EINK_SPI_CS,
         .flags = (SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_3WIRE),
         .queue_size = 5,
+        .pre_cb = NULL,
+        .post_cb = NULL,
     };
 
     ESP_ERROR_CHECK(spi_bus_initialize(HSPI_HOST, &buscfg, SPI_DMA_DISABLED));
@@ -76,9 +87,8 @@ void EpdSpi::send_command(const uint8_t command)
     ESP_LOGD(TAG, "Sending command: 0x%x", command);
 
     spi_transaction_t t;
-
     memset(&t, 0, sizeof(t)); // Zero out the transaction
-    t.length = 8;             // Command is 8 bits
+    t.length = 8;             // Command is always 8 bits
     t.tx_buffer = &command;   // The data is the command itself
 
     gpio_set_level((gpio_num_t)CONFIG_EINK_DC, 0);
@@ -96,8 +106,8 @@ void EpdSpi::send_data(uint8_t data)
     ESP_LOGD(TAG, "Sending data: 0x%x", data);
 
     spi_transaction_t t;
-    memset(&t, 0, sizeof(t)); // Zero out the transaction
-    t.length = 8;             // Command is 8 bits
+    memset(&t, 0, sizeof(t));
+    t.length = 8;
     t.tx_buffer = &data;
 
     ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
@@ -118,11 +128,11 @@ void EpdSpi::send_data(const uint8_t *data, size_t length)
     spi_transaction_t t;
 
     // Maximum transfer size is SOC_SPI_MAXIMUM_BUFFER_SIZE = 64 bytes
-    // Split larger transfers into smaller chunks
+    // Split larger transfers into chunks of SOC_SPI_MAXIMUM_BUFFER_SIZE bytes
     for (size_t i = 0; i < length; i += SOC_SPI_MAXIMUM_BUFFER_SIZE)
     {
-        memset(&t, 0, sizeof(t));                                                // Zero out the transaction
-        t.length = 8 * std::min(SOC_SPI_MAXIMUM_BUFFER_SIZE, (int)(length - i)); // Convert to bits
+        memset(&t, 0, sizeof(t));
+        t.length = 8 * std::min(SOC_SPI_MAXIMUM_BUFFER_SIZE, (int)(length - i));
         t.tx_buffer = data + i;
         ESP_ERROR_CHECK(spi_device_polling_transmit(spi, &t));
     }
@@ -136,7 +146,7 @@ void EpdSpi::send_data(const uint8_t *data, size_t length)
  *
  * @param wait_ms The amount of time to hold the reset line low and then high, in milliseconds.
  */
-void EpdSpi::reset(uint8_t wait_ms = 20)
+void EpdSpi::hardware_reset(uint8_t wait_ms = 20)
 {
     gpio_set_level((gpio_num_t)CONFIG_EINK_RST, 0);
     vTaskDelay(wait_ms / portTICK_PERIOD_MS);

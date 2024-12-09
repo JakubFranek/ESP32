@@ -50,7 +50,7 @@ void Gdey029T94::initialize(void)
 {
   epd_spi.initialize(GDEY029T94_SPI_FREQUENCY_MHZ);
 
-  epd_spi.reset(GDEY029T94_HW_RESET_DELAY_MS);
+  epd_spi.hardware_reset(GDEY029T94_HW_RESET_DELAY_MS);
   fillScreen(EPD_WHITE);
 }
 
@@ -244,7 +244,7 @@ void Gdey029T94::drawPixel(int16_t x, int16_t y, uint16_t color)
 
 void Gdey029T94::_wakeUp()
 {
-  epd_spi.reset(GDEY029T94_HW_RESET_DELAY_MS);
+  epd_spi.hardware_reset(GDEY029T94_HW_RESET_DELAY_MS);
   _waitBusy("Hardware reset");
   epd_spi.send_command(SSD1680_CMD_SW_RESET);
   _waitBusy("Software reset");

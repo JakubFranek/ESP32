@@ -7,10 +7,12 @@
  */
 
 #include "epd.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include "esp_log.h"
+
 #include "freertos/task.h"
+#include "esp_log.h"
 
 /**
  * @brief Write a single byte (character) to the display
@@ -70,15 +72,7 @@ void Epd::print(const char c)
  */
 void Epd::println(const std::string &text)
 {
-  for (auto c : text)
-  {
-    if (c == 195 || c == 194)
-      continue; // Skip to next letter
-
-    // _unicodeEasy will just sum 64 and get the right character, should be faster and cover more chars
-    c = _unicodeEasy(c);
-    write(uint8_t(c));
-  }
+  print(text);
   newline();
 }
 

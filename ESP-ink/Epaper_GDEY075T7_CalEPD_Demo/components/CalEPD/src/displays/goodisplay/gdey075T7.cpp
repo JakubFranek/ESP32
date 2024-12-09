@@ -7,13 +7,15 @@
  */
 
 #include "displays/goodisplay/gdey075T7.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include "esp_log.h"
-#include "freertos/task.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <inttypes.h>
+
+#include "freertos/task.h"
+#include "esp_log.h"
 
 #define UC8179_SPI_FREQUENCY_MHZ 20
 #define GDEY075T7_BUSY_TIMEOUT_US 10000000 // 10 s
@@ -153,7 +155,7 @@ void Gdey075T7::fillScreen(uint16_t color)
 
 void Gdey075T7::_wakeUp()
 {
-  epd_spi.reset(10);
+  epd_spi.hardware_reset(10);
 
   epd_spi.send_command(UC8179_CMD_POWER_SETTING);
   epd_spi.send_data(0x07); // (default) Source LV power selection: internal; Source power selection: internal; Gate power selection: internal
