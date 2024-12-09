@@ -172,7 +172,7 @@ void Gdey075T7::_wakeUp()
 
   epd_spi.send_command(UC8179_CMD_POWER_ON); // POWER ON
 
-  _waitBusy("Power On command (_wakeUp)");
+  _wait_while_busy("Power On command (_wakeUp)");
 
   epd_spi.send_command(UC8179_CMD_PANEL_SETTING);
   epd_spi.send_data(0x1F); // LUT selection: OTP; B&W mode; Gate scan direction: up; Source shift direction: right; Booster: on; Soft reset: no effect
@@ -223,7 +223,7 @@ void Gdey075T7::update()
   }
 
   epd_spi.send_command(UC8179_CMD_DISPLAY_REFRESH);
-  _waitBusy("Display Refresh command (_update)");
+  _wait_while_busy("Display Refresh command (_update)");
   _sleep();
 }
 
@@ -276,9 +276,8 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
     for (int16_t x1 = xs_bx; x1 < xe_bx; x1++)
     {
       uint16_t idx = y1 * (GDEY075T7_WIDTH / 8) + x1;
-      // white is 0x00 in buffer
-      uint8_t data = (idx < sizeof(_buffer)) ? _buffer[idx] : 0x00;
-      // white is 0xFF on device
+      uint8_t data = (idx < sizeof(_buffer)) ? _buffer[idx] : EPD_BLACK;
+
       epd_spi.send_data(data);
 
       if (idx % 8 == 0)
@@ -288,13 +287,13 @@ void Gdey075T7::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, boo
     }
   }
   epd_spi.send_command(UC8179_CMD_DISPLAY_REFRESH);
-  _waitBusy("Display Refresh command (updateWindow)");
+  _wait_while_busy("Display Refresh command (updateWindow)");
   epd_spi.send_command(UC8179_CMD_PARTIAL_OUT);
 
   vTaskDelay(GDEY075T7_PU_DELAY / portTICK_PERIOD_MS);
 }
 
-void Gdey075T7::_waitBusy(const char *message)
+void Gdey075T7::_wait_while_busy(const char *message)
 {
   int64_t time_since_boot = esp_timer_get_time();
 
@@ -316,7 +315,7 @@ void Gdey075T7::_waitBusy(const char *message)
 void Gdey075T7::_sleep()
 {
   epd_spi.send_command(UC8179_CMD_POWER_OFF);
-  _waitBusy("Power off command (_sleep)");
+  _wait_while_busy("Power off command (_sleep)");
   epd_spi.send_command(UC8179_CMD_DEEP_SLEEP);
   epd_spi.send_data(0xA5); // Magic number to enter deep sleep as defined in UC8179 datasheet
 }
@@ -375,4 +374,158 @@ void Gdey075T7::drawPixel(int16_t x, int16_t y, uint16_t color)
   {
     _buffer[i] = (_buffer[i] & (0xFF ^ (1 << (7 - x % 8))));
   }
+}
+
+void Gdey075T7::_InitDisplay()
+{
+  if (_is_in_deep_sleep)
+  {
+    epd_spi.hardware_reset(10); // wake up from deep sleep
+    _is_in_deep_sleep = false;
+  }
+
+  epd_spi.send_command(UC8179_CMD_PANEL_SETTING);
+  epd_spi.send_data(0x1f); // KW: 3f, KWR: 2F, BWROTP: 0f, BWOTP: 1f
+
+  epd_spi.send_command(UC8179_CMD_POWER_SETTING);
+  epd_spi.send_data(0x07); // enable internal
+  epd_spi.send_data(0x07); // VGH=20V,VGL=-20V
+  epd_spi.send_data(0x3f); // VDH=15V
+  epd_spi.send_data(0x3f); // VDL=-15V
+  epd_spi.send_data(0x09); // VDHR=4.2V
+
+  epd_spi.send_command(UC8179_CMD_BOOSTER_SOFT_START);
+  epd_spi.send_data(0x17);
+  epd_spi.send_data(0x17);
+  epd_spi.send_data(0x28);
+  epd_spi.send_data(0x17);
+  epd_spi.send_command(UC8179_CMD_RESOLUTION_SETTING);
+  epd_spi.send_data(WIDTH / 256);
+  epd_spi.send_data(WIDTH % 256);
+  epd_spi.send_data(HEIGHT / 256);
+  epd_spi.send_data(HEIGHT % 256);
+  epd_spi.send_command(UC8179_CMD_DUAL_SPI);
+  epd_spi.send_data(0x00); // disabled
+  epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
+  epd_spi.send_data(0x29); // LUTKW, N2OCP: copy new to old
+  epd_spi.send_data(0x07); // CDI 10hsynch (default)
+  epd_spi.send_command(UC8179_CMD_TCON_SETTING);
+  epd_spi.send_data(0x22); // S2G G2S, 12 (default)
+  epd_spi.send_command(UC8179_CMD_POWER_SAVING);
+  epd_spi.send_data(0x22); // VCOM 2 line period, Source 2 * 660ns
+}
+
+void Gdey075T7::_Init_Full()
+{
+  _InitDisplay();
+
+  epd_spi.send_command(UC8179_CMD_PANEL_SETTING); // panel setting
+  epd_spi.send_data(0x1f);                        // full update LUT from OTP
+
+  _PowerOn();
+  _using_partial_mode = false;
+}
+
+void Gdey075T7::_Init_Part()
+{
+  _InitDisplay();
+
+  if (_useFastPartialUpdateFromOTP)
+  {
+    epd_spi.send_command(UC8179_CMD_PANEL_SETTING);     // panel setting
+    epd_spi.send_data(0x1f);                            // full update LUT from OTP
+    epd_spi.send_command(UC8179_CMD_CASCADE_SETTING);   // Cascade Setting (CCSET)
+    epd_spi.send_data(0x02);                            // TSFIX
+    epd_spi.send_command(UC8179_CMD_FORCE_TEMPERATURE); // Force Temperature (TSSET)
+    epd_spi.send_data(0x6E);                            // 110
+  }
+  else
+  {
+    epd_spi.send_command(UC8179_CMD_PANEL_SETTING);                  // panel setting
+    epd_spi.send_data(0x3f);                                         // partial update LUT from registers
+    epd_spi.send_command(UC8179_CMD_VCOM_DC_SETTING);                // vcom_DC setting
+    epd_spi.send_data(0x30);                                         // -2.5V same value as in OTP
+    epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING); // VCOM AND DATA INTERVAL SETTING
+    epd_spi.send_data(0x39);                                         // LUTBD, N2OCP: copy new to old
+    epd_spi.send_data(0x07);
+
+    // LUT Tables for partial update, sent in 42 byte chunks, total 210 bytes
+    epd_spi.send_command(lut_20_LUTC_partial.cmd);
+    epd_spi.send_data(lut_20_LUTC_partial.data, lut_20_LUTC_partial.databytes);
+
+    epd_spi.send_command(lut_21_LUTWW_partial.cmd);
+    epd_spi.send_data(lut_21_LUTWW_partial.data, lut_21_LUTWW_partial.databytes);
+
+    epd_spi.send_command(lut_22_LUTKW_partial.cmd);
+    epd_spi.send_data(lut_22_LUTKW_partial.data, lut_22_LUTKW_partial.databytes);
+
+    epd_spi.send_command(lut_23_LUTWK_partial.cmd);
+    epd_spi.send_data(lut_23_LUTWK_partial.data, lut_23_LUTWK_partial.databytes);
+
+    epd_spi.send_command(lut_24_LUTKK_partial.cmd);
+    epd_spi.send_data(lut_24_LUTKK_partial.data, lut_24_LUTKK_partial.databytes);
+
+    epd_spi.send_command(lut_25_LUTBD_partial.cmd);
+    epd_spi.send_data(lut_25_LUTBD_partial.data, lut_25_LUTBD_partial.databytes);
+  }
+
+  _PowerOn();
+  _using_partial_mode = true;
+}
+
+void Gdey075T7::_Update_Full()
+{
+  if (_update_mode == GDEY075T7_FAST_UPDATE)
+  {
+    epd_spi.send_command(UC8179_CMD_CASCADE_SETTING);
+    epd_spi.send_data(0x02); // TSFIX
+    epd_spi.send_command(UC8179_CMD_FORCE_TEMPERATURE);
+    epd_spi.send_data(0x5A); // 90
+  }
+  else
+  {
+    epd_spi.send_command(UC8179_CMD_CASCADE_SETTING);
+    epd_spi.send_data(0x00); // no TSFIX, Temperature value is defined by internal temperature sensor
+    epd_spi.send_command(UC8179_CMD_TEMPERATURE_SENSOR_SELECTION);
+    epd_spi.send_data(0x00); // TSE, Internal temperature sensor switch
+  }
+  _refresh();
+}
+
+void Gdey075T7::_refresh()
+{
+  epd_spi.send_command(UC8179_CMD_DISPLAY_REFRESH); // display refresh
+  _wait_while_busy("_refresh");
+}
+
+void Gdey075T7::set_update_mode(GDEY075T7_UPDATE_MODE mode)
+{
+  _update_mode = mode;
+}
+
+void Gdey075T7::_PowerOn()
+{
+  if (_is_power_on)
+    return;
+
+  epd_spi.send_command(UC8179_CMD_POWER_ON);
+  _wait_while_busy("_PowerOn");
+  _is_power_on = true;
+}
+
+void Gdey075T7::_PowerOff()
+{
+  if (!_is_power_on)
+    return;
+
+  epd_spi.send_command(UC8179_CMD_POWER_OFF);
+  _wait_while_busy("_PowerOff");
+  _is_power_on = false;
+  _using_partial_mode = false;
+}
+
+void Gdey075T7::_enter_deep_sleep()
+{
+  epd_spi.send_command(UC8179_CMD_DEEP_SLEEP);
+  epd_spi.send_data(0xA5); // Magic number to enter deep sleep as defined in UC8179 datasheet
 }

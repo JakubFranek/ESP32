@@ -90,7 +90,7 @@ void Gdey029T94::update()
   epd_spi.send_data(GDEY029T94_UPDATE_SEQUENCE);
   epd_spi.send_command(SSD1680_CMD_UPDATE);
 
-  _waitBusy("update full");
+  _wait_while_busy("update full");
   _sleep();
 }
 
@@ -117,12 +117,12 @@ void Gdey029T94::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bo
   uint16_t xe_d8 = xe / 8;
 
   epd_spi.send_command(SSD1680_CMD_SW_RESET);
-  _waitBusy("Software reset");
+  _wait_while_busy("Software reset");
 
   _setRamDataEntryMode(0x03);
   _SetRamArea(xs_d8, xe_d8, y % 256, y / 256, ye % 256, ye / 256);
   _SetRamPointer(xs_d8, y % 256, y / 256);
-  _waitBusy("updateWindow I");
+  _wait_while_busy("updateWindow I");
 
   epd_spi.send_command(SSD1680_CMD_SET_UPDATE_SEQUENCE);
   epd_spi.send_data(0xFF);
@@ -151,14 +151,14 @@ void Gdey029T94::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bo
   }
 
   epd_spi.send_command(SSD1680_CMD_UPDATE);
-  _waitBusy("updateWindow II");
+  _wait_while_busy("updateWindow II");
   _sleep();
 }
 
-void Gdey029T94::_waitBusy(const char *message)
+void Gdey029T94::_wait_while_busy(const char *message)
 {
 
-  ESP_LOGD(TAG, "_waitBusy for %s", message);
+  ESP_LOGD(TAG, "_wait_while_busy for %s", message);
   int64_t time_since_boot = esp_timer_get_time();
 
   while (true)
@@ -245,9 +245,9 @@ void Gdey029T94::drawPixel(int16_t x, int16_t y, uint16_t color)
 void Gdey029T94::_wakeUp()
 {
   epd_spi.hardware_reset(GDEY029T94_HW_RESET_DELAY_MS);
-  _waitBusy("Hardware reset");
+  _wait_while_busy("Hardware reset");
   epd_spi.send_command(SSD1680_CMD_SW_RESET);
-  _waitBusy("Software reset");
+  _wait_while_busy("Software reset");
 
   epd_spi.send_command(SSD1680_CMD_SET_DRIVER_OUTPUT_CONTROL);
   epd_spi.send_data(0x27);
@@ -276,7 +276,7 @@ void Gdey029T94::_wakeUp()
   epd_spi.send_data(0x01);
   epd_spi.send_data(0x00);
   epd_spi.send_data(0x00);
-  _waitBusy("wakeup CMDs");
+  _wait_while_busy("wakeup CMDs");
 }
 
 void Gdey029T94::_SetRamArea(uint8_t Xstart, uint8_t Xend, uint8_t Ystart, uint8_t Ystart1, uint8_t Yend, uint8_t Yend1)

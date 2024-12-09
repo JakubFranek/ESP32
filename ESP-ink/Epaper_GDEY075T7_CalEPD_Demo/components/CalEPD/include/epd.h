@@ -63,7 +63,7 @@ protected:
 private:
     virtual void _wakeUp() = 0;
     virtual void _sleep() = 0;
-    virtual void _waitBusy(const char *message) = 0;
+    virtual void _wait_while_busy(const char *message) = 0;
 
     uint8_t _unicodeEasy(uint8_t c);
 };
