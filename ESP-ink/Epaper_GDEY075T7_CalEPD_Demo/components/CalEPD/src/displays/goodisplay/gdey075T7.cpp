@@ -100,8 +100,8 @@ DRAM_ATTR const epd_init_42 Gdey075T7::lut_24_LUTKK_partial = {
 DRAM_ATTR const epd_init_42 Gdey075T7::lut_25_LUTBD_partial = {
     UC8179_CMD_LUT_BORDER, {0x00, T1, T2, T3, T4, 1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 42};
 
-Gdey075T7::Gdey075T7(EpdSpi &dio) : Adafruit_GFX(GDEY075T7_WIDTH, GDEY075T7_HEIGHT),
-                                    Epd(GDEY075T7_WIDTH, GDEY075T7_HEIGHT), epd_spi(dio) {};
+Gdey075T7::Gdey075T7(EpdSpi &epd_spi) : Adafruit_GFX(GDEY075T7_WIDTH, GDEY075T7_HEIGHT),
+                                        Epd(GDEY075T7_WIDTH, GDEY075T7_HEIGHT), epd_spi(epd_spi) {};
 
 void Gdey075T7::initPartialUpdate()
 {
@@ -160,6 +160,7 @@ void Gdey075T7::_wakeUp()
   epd_spi.send_data(0x07); // VGH / VGL selection: VGH = 20 V, VGL = -20 V (default)
   epd_spi.send_data(0x3f); // VDH selection: 15 V
   epd_spi.send_data(0x3f); // VDL selection: -15 V
+  epd_spi.send_data(0x09); // VDHR selection: 4.2 V
 
   epd_spi.send_command(UC8179_CMD_BOOSTER_SOFT_START);
   epd_spi.send_data(0x17); // (default) Soft start phase A: 10 ms; Strength phase A: 3; Min. off time of GDR in phase A: 6.58 us
@@ -175,20 +176,24 @@ void Gdey075T7::_wakeUp()
   epd_spi.send_data(0x1F); // LUT selection: OTP; B&W mode; Gate scan direction: up; Source shift direction: right; Booster: on; Soft reset: no effect
 
   epd_spi.send_command(UC8179_CMD_RESOLUTION_SETTING);
-  epd_spi.send_data(0x03); // Horizontal resolution: 800
-  epd_spi.send_data(0x20);
-  epd_spi.send_data(0x01); // Vertical resolution: 480
-  epd_spi.send_data(0xE0);
+  epd_spi.send_data(GDEY075T7_WIDTH / 256);
+  epd_spi.send_data(GDEY075T7_WIDTH % 256);
+  epd_spi.send_data(GDEY075T7_HEIGHT / 256);
+  epd_spi.send_data(GDEY075T7_HEIGHT % 256);
 
   epd_spi.send_command(UC8179_CMD_DUAL_SPI);
   epd_spi.send_data(0x00); // (default) Dual SPI mode: disabled
 
   epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
   epd_spi.send_data(0x10); // Border output: Hi-Z; Border LUT selection: LUTW; Copy new data to old data after display refresh: disabled
+  // epd_spi.send_data(0x29) // TODO: find out which value is better (CalEPD vs. GxEPD2)
   epd_spi.send_data(0x07); // VCOM and data interval: 0d10
 
   epd_spi.send_command(UC8179_CMD_TCON_SETTING);
   epd_spi.send_data(0x22); // Source to Gate non-overlap: 0d12; Gate to Source non-overlap: 0d12
+
+  epd_spi.send_command(UC8179_CMD_POWER_SAVING);
+  epd_spi.send_data(0x22); // VCOM Power Saving: 0d2 line period; Source power saving: 2*660 ns
 }
 
 void Gdey075T7::update()

@@ -12,10 +12,11 @@
 #include "gfxfont.h"
 #include "Fonts/FreeSansBold24pt7b.h"
 #include "Fonts/FreeSans12pt7b.h"
+#include "Fonts/FreeSansBold72pt7b.h"
 
 #include "displays/goodisplay/gdey075T7.h"
 
-#define TEST_TEXT "TEST 2"
+#define TEST_TEXT "12:34"
 
 EpdSpi epd_spi;
 Gdey075T7 display(epd_spi);
@@ -37,8 +38,7 @@ void app_main(void)
 
     display.fillScreen(EPD_WHITE);
     display.setTextColor(EPD_BLACK);
-    display.setFont(&FreeSansBold24pt7b);
-    display.setTextSize(2);
+    display.setFont(&FreeSansBold72pt7b);
 
     int16_t x1, y1;
     uint16_t w, h;
@@ -49,6 +49,7 @@ void app_main(void)
 
     display.println(TEST_TEXT);
     display.drawLine(0, 100, display.width(), 100, EPD_BLACK);
+
     display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
 
     display.update();
