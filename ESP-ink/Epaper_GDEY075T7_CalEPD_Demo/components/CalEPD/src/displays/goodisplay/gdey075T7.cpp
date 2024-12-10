@@ -114,13 +114,13 @@ void Gdey075T7::initialize()
   ESP_LOGI(TAG, "initialize");
   epd_spi.initialize(UC8179_SPI_FREQUENCY_MHZ);
 
-  set_update_mode(GDEY075T7_NORMAL_UPDATE);
+  /*set_update_mode(GDEY075T7_NORMAL_UPDATE);
 
   fillScreen(EPD_BLACK);
   transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_1); // Send white data to "previous" RAM
   fillScreen(EPD_WHITE);
   transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_2); // Send screen buffer (also all white) to "current" RAM
-  refresh_();
+  refresh_();*/
 }
 
 /**
@@ -719,4 +719,135 @@ void Gdey075T7::update_partial_()
   set_partial_ram_area_(0, 0, WIDTH, HEIGHT);
   transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_2);
   send_refresh_command_();
+}
+
+void Gdey075T7::EPD_Init(void)
+{
+  epd_spi.hardware_reset(20);
+
+  epd_spi.send_command(0x01); // POWER SETTING
+  epd_spi.send_data(0x07);
+  epd_spi.send_data(0x07); // VGH=20V,VGL=-20V
+  epd_spi.send_data(0x3f); // VDH=15V
+  epd_spi.send_data(0x3f); // VDL=-15V
+
+  // Enhanced display drive(Add 0x06 command)
+  epd_spi.send_command(0x06); // Booster Soft Start
+  epd_spi.send_data(0x17);
+  epd_spi.send_data(0x17);
+  epd_spi.send_data(0x28);
+  epd_spi.send_data(0x17);
+
+  epd_spi.send_command(0x04); // POWER ON
+  vTaskDelay(20 / portTICK_PERIOD_MS);
+  wait_while_busy_("epd_spi.send_command(0x04)");
+
+  epd_spi.send_command(0X00); // PANNEL SETTING
+  epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
+
+  epd_spi.send_command(0x61); // tres
+  epd_spi.send_data(0x03);    // source 800
+  epd_spi.send_data(0x20);
+  epd_spi.send_data(0x01); // gate 480
+  epd_spi.send_data(0xE0);
+
+  epd_spi.send_command(0X15);
+  epd_spi.send_data(0x00);
+
+  epd_spi.send_command(0X50); // VCOM AND DATA INTERVAL SETTING
+  epd_spi.send_data(0x10);
+  epd_spi.send_data(0x07);
+
+  epd_spi.send_command(0X60); // TCON SETTING
+  epd_spi.send_data(0x22);
+}
+
+void Gdey075T7::EPD_WhiteScreen_White_Basemap(void)
+{
+  unsigned int i;
+  // Write Data
+  epd_spi.send_command(0x10);
+  for (i = 0; i < WIDTH * HEIGHT / 8; i++)
+  {
+    epd_spi.send_data(0xFF); // is  different
+  }
+  epd_spi.send_command(0x13);
+  for (i = 0; i < WIDTH * HEIGHT / 8; i++)
+  {
+    epd_spi.send_data(0x00);
+  }
+  EPD_Update();
+}
+
+void Gdey075T7::EPD_Init_Part(void)
+{
+  epd_spi.hardware_reset(20);
+
+  epd_spi.send_command(0X00); // PANNEL SETTING
+  epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
+
+  epd_spi.send_command(0x04); // POWER ON
+  vTaskDelay(20 / portTICK_PERIOD_MS);
+  wait_while_busy_("epd_spi.send_command(0x04)");
+
+  epd_spi.send_command(0xE0);
+  epd_spi.send_data(0x02);
+  epd_spi.send_command(0xE5);
+  epd_spi.send_data(0x6E);
+}
+
+void Gdey075T7::EPD_Dis_PartAll(const unsigned char *datas)
+{
+  unsigned int i;
+  unsigned int x_start = 0, y_start = 0, x_end, y_end;
+  unsigned int PART_COLUMN = HEIGHT, PART_LINE = WIDTH;
+
+  x_end = x_start + PART_LINE - 1;
+  y_end = y_start + PART_COLUMN - 1;
+
+  epd_spi.send_command(0x50);
+  epd_spi.send_data(0xA9);
+  epd_spi.send_data(0x07);
+
+  epd_spi.send_command(0x91); // This command makes the display enter partial mode
+  epd_spi.send_command(0x90); // resolution setting
+  epd_spi.send_data(x_start / 256);
+  epd_spi.send_data(x_start % 256); // x-start
+
+  epd_spi.send_data(x_end / 256);
+  epd_spi.send_data(x_end % 256 - 1); // x-end
+
+  epd_spi.send_data(y_start / 256); //
+  epd_spi.send_data(y_start % 256); // y-start
+
+  epd_spi.send_data(y_end / 256);
+  epd_spi.send_data(y_end % 256 - 1); // y-end
+  epd_spi.send_data(0x01);
+
+  epd_spi.send_command(0x13); // writes New data to SRAM.
+  for (i = 0; i < PART_COLUMN * PART_LINE / 8; i++)
+  {
+    epd_spi.send_data(datas[i]);
+  }
+  EPD_Update();
+}
+
+void Gdey075T7::EPD_DeepSleep(void)
+{
+  epd_spi.send_command(0X50); // VCOM AND DATA INTERVAL SETTING
+  epd_spi.send_data(0xf7);    // WBmode:VBDF 17|D7 VBDW 97 VBDB 57    WBRmode:VBDF F7 VBDW 77 VBDB 37  VBDR B7
+
+  epd_spi.send_command(0X02); // power off
+  vTaskDelay(10 / portTICK_PERIOD_MS);
+  wait_while_busy_("power off");
+  epd_spi.send_command(0X07); // deep sleep
+  epd_spi.send_data(0xA5);
+}
+
+void Gdey075T7::EPD_Update(void)
+{
+  // Refresh
+  epd_spi.send_command(0x12); // DISPLAY REFRESH
+  vTaskDelay(10 / portTICK_PERIOD_MS);
+  wait_while_busy_("refresh");
 }

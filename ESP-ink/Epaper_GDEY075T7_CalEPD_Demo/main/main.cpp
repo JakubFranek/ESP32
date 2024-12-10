@@ -34,7 +34,7 @@ void app_main(void)
     gpio_set_level(GPIO_NUM_2, 1);
 
     display.initialize();
-    display.set_update_mode(GDEY075T7_PARTIAL_UPDATE);
+    /*display.set_update_mode(GDEY075T7_PARTIAL_UPDATE);
     display.setRotation(2);
 
     display.setTextColor(EPD_BLACK);
@@ -47,12 +47,19 @@ void app_main(void)
     uint16_t y = -y1;
     display.setCursor(x, y);
 
-    display.println(TEST_TEXT);
+    display.println(TEST_TEXT);*/
     display.drawLine(0, 200, display.width(), 200, EPD_BLACK);
+    display.drawLine(0, 300, display.width(), 300, EPD_WHITE);
+    /*
+        display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
 
-    display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
+        display.update();*/
 
-    display.update();
+    display.EPD_Init();                      // Full screen refresh initialization.
+    display.EPD_WhiteScreen_White_Basemap(); // Please do not delete the background color function, otherwise it will cause unstable display during partial refresh.
+    display.EPD_Init_Part();
+    display.EPD_Dis_PartAll(display._buffer);
+    display.EPD_DeepSleep(); // Enter the sleep mode and please do not delete it, otherwise it will reduce the lifespan of the screen.
 
     return;
 }

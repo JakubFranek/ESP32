@@ -60,13 +60,19 @@ public:
   void update();
   void set_update_mode(GDEY075T7_UPDATE_MODE mode);
 
+  void EPD_DeepSleep(void);
+  void EPD_Dis_PartAll(const unsigned char *datas);
+  void EPD_Init_Part(void);
+  void EPD_WhiteScreen_White_Basemap(void);
+  void EPD_Init(void);
+
+  uint8_t _buffer[GDEY075T7_BUFFER_SIZE];
+
 private:
   EpdSpi &epd_spi;
   GDEY075T7_UPDATE_MODE update_mode_ = GDEY075T7_NORMAL_UPDATE;
 
-  uint8_t _buffer[GDEY075T7_BUFFER_SIZE];
-
-  bool is_power_on_ = false;
+    bool is_power_on_ = false;
   bool is_in_deep_sleep_ = true;
   bool use_partial_update_from_otp_ = true;
 
@@ -85,6 +91,8 @@ private:
   void refresh_();
   void refresh_(int16_t x, int16_t y, int16_t w, int16_t h);
   void update_partial_();
+
+  void EPD_Update(void);
 
   static const epd_init_42 lut_20_LUTC_partial;
   static const epd_init_42 lut_21_LUTWW_partial;
