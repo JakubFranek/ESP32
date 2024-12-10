@@ -551,8 +551,11 @@ void Gdey075T7::set_update_mode(GDEY075T7_UPDATE_MODE mode)
 void Gdey075T7::power_on_()
 {
   ESP_LOGI(TAG, "power_on_");
-  if (is_power_on_)
+  /*if (is_power_on_)
+  {
+    ESP_LOGI(TAG, "power is already on");
     return;
+  }*/
 
   epd_spi.send_command(UC8179_CMD_POWER_ON);
   vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -572,8 +575,11 @@ void Gdey075T7::power_on_()
 void Gdey075T7::power_off_()
 {
   ESP_LOGI(TAG, "power_off_");
-  if (!is_power_on_)
+  /*if (!is_power_on_)
+  {
+    ESP_LOGI(TAG, "power is already off");
     return;
+  }*/
 
   epd_spi.send_command(UC8179_CMD_POWER_OFF);
   vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -723,6 +729,7 @@ void Gdey075T7::update_partial_()
 
 void Gdey075T7::EPD_Init(void)
 {
+  ESP_LOGI(TAG, "EPD_Init");
   epd_spi.hardware_reset(10);
 
   epd_spi.send_command(0x01); // POWER SETTING
@@ -738,9 +745,7 @@ void Gdey075T7::EPD_Init(void)
   epd_spi.send_data(0x28);
   epd_spi.send_data(0x17);
 
-  epd_spi.send_command(0x04); // POWER ON
-  vTaskDelay(10 / portTICK_PERIOD_MS);
-  wait_while_busy_("epd_spi.send_command(0x04)");
+  power_on_();
 
   epd_spi.send_command(0X00); // PANNEL SETTING
   epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
@@ -764,6 +769,7 @@ void Gdey075T7::EPD_Init(void)
 
 void Gdey075T7::EPD_WhiteScreen_White_Basemap(void)
 {
+  ESP_LOGI(TAG, "EPD_WhiteScreen_White_Basemap");
   unsigned int i;
   // Write Data
   epd_spi.send_command(0x10);
@@ -781,14 +787,13 @@ void Gdey075T7::EPD_WhiteScreen_White_Basemap(void)
 
 void Gdey075T7::EPD_Init_Part(void)
 {
-  epd_spi.hardware_reset(20);
+  ESP_LOGI(TAG, "EPD_Init_Part");
+  epd_spi.hardware_reset(10);
 
   epd_spi.send_command(0X00); // PANNEL SETTING
   epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
 
-  epd_spi.send_command(0x04); // POWER ON
-  vTaskDelay(10 / portTICK_PERIOD_MS);
-  wait_while_busy_("epd_spi.send_command(0x04)");
+  power_on_();
 
   epd_spi.send_command(0xE0);
   epd_spi.send_data(0x02);
@@ -798,6 +803,7 @@ void Gdey075T7::EPD_Init_Part(void)
 
 void Gdey075T7::EPD_Dis_PartAll(const unsigned char *datas)
 {
+  ESP_LOGI(TAG, "EPD_Dis_PartAll");
   unsigned int i;
   unsigned int x_start = 0, y_start = 0, x_end, y_end;
   unsigned int PART_COLUMN = HEIGHT, PART_LINE = WIDTH;
@@ -834,18 +840,18 @@ void Gdey075T7::EPD_Dis_PartAll(const unsigned char *datas)
 
 void Gdey075T7::EPD_DeepSleep(void)
 {
+  ESP_LOGI(TAG, "EPD_DeepSleep");
   epd_spi.send_command(0X50); // VCOM AND DATA INTERVAL SETTING
   epd_spi.send_data(0xf7);    // WBmode:VBDF 17|D7 VBDW 97 VBDB 57    WBRmode:VBDF F7 VBDW 77 VBDB 37  VBDR B7
 
-  epd_spi.send_command(0X02); // power off
-  vTaskDelay(10 / portTICK_PERIOD_MS);
-  wait_while_busy_("power off");
+  power_off_();
   epd_spi.send_command(0X07); // deep sleep
   epd_spi.send_data(0xA5);
 }
 
 void Gdey075T7::EPD_Update(void)
 {
+  ESP_LOGI(TAG, "EPD_Update");
   // Refresh
   epd_spi.send_command(0x12); // DISPLAY REFRESH
   vTaskDelay(10 / portTICK_PERIOD_MS);
