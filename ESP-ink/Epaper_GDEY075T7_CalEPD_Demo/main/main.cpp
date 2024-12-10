@@ -48,8 +48,8 @@ void app_main(void)
     display.setCursor(x, y);
 
     display.println(TEST_TEXT);*/
-    display.drawLine(0, 200, display.width(), 200, EPD_BLACK);
-    display.drawLine(0, 300, display.width(), 300, EPD_WHITE);
+    display.drawLine(0, display.height(), display.width(), 0, EPD_BLACK);
+    display.drawLine(0, 0, display.width(), display.height(), EPD_WHITE);
     /*
         display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
 

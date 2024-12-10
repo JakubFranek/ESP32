@@ -723,7 +723,7 @@ void Gdey075T7::update_partial_()
 
 void Gdey075T7::EPD_Init(void)
 {
-  epd_spi.hardware_reset(20);
+  epd_spi.hardware_reset(10);
 
   epd_spi.send_command(0x01); // POWER SETTING
   epd_spi.send_data(0x07);
@@ -739,7 +739,7 @@ void Gdey075T7::EPD_Init(void)
   epd_spi.send_data(0x17);
 
   epd_spi.send_command(0x04); // POWER ON
-  vTaskDelay(20 / portTICK_PERIOD_MS);
+  vTaskDelay(10 / portTICK_PERIOD_MS);
   wait_while_busy_("epd_spi.send_command(0x04)");
 
   epd_spi.send_command(0X00); // PANNEL SETTING
@@ -787,7 +787,7 @@ void Gdey075T7::EPD_Init_Part(void)
   epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
 
   epd_spi.send_command(0x04); // POWER ON
-  vTaskDelay(20 / portTICK_PERIOD_MS);
+  vTaskDelay(10 / portTICK_PERIOD_MS);
   wait_while_busy_("epd_spi.send_command(0x04)");
 
   epd_spi.send_command(0xE0);
