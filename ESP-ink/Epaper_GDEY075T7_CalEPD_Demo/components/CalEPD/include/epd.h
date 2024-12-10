@@ -33,7 +33,6 @@ public:
     Epd(int16_t w, int16_t h) : Adafruit_GFX(w, h) {};
 
     virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0; // Override GFX own drawPixel method
-    virtual void initialize() = 0;
     virtual void update() = 0;
 
     size_t write(uint8_t);
@@ -61,10 +60,8 @@ protected:
     }
 
 private:
-    virtual void _wakeUp() = 0;
-    virtual void _sleep() = 0;
-    virtual void _wait_while_busy(const char *message) = 0;
+    virtual void wait_while_busy_(const char *message) = 0;
 
-    uint8_t _unicodeEasy(uint8_t c);
+    uint8_t unicode_easy_(uint8_t c);
 };
 #endif

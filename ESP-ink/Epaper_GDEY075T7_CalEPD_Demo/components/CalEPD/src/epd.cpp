@@ -29,7 +29,7 @@ size_t Epd::write(uint8_t v)
   return 1;
 }
 
-uint8_t Epd::_unicodeEasy(uint8_t c) // TODO: understand the necessity of this function
+uint8_t Epd::unicode_easy_(uint8_t c) // TODO: understand the necessity of this function
 {
   if (c < 191 && c > 131 && c != 176)
   { // 176 is ° (degree symbol)
@@ -45,7 +45,7 @@ void Epd::print(const std::string &text)
     if (c == 195 || c == 194) // accents and special multi-byte characters start with these values
       continue;               // Skip to next letter
 
-    c = _unicodeEasy(c);
+    c = unicode_easy_(c);
     write(uint8_t(c));
   }
 }

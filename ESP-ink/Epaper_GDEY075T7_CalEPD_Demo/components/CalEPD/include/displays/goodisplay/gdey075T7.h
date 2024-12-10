@@ -1,9 +1,13 @@
 /*
  * This file is based on source code originally from martinberlin/CalEPD GitHub repository,
  * available at https://github.com/martinberlin/CalEPD.
- *
  * Modifications have been made to the original code by Jakub Franek (https://github.com/JakubFranek),
  * as permitted under the Apache License, Version 2.0.
+ *
+ * This file includes code adapted from GxEPD2 by Jean-Marc Zingg.
+ * Original source: https://github.com/ZinggJM/GxEPD2
+ * Licensed under the GNU General Public License v3.0 (GPLv3).
+ * See the LICENSE file or https://www.gnu.org/licenses/gpl-3.0.en.html for details.
  */
 
 #include <stdio.h>
@@ -31,7 +35,7 @@
 
 typedef enum GDEY075T7_UPDATE_MODE
 {
-  GDEY075T7_FULL_UPDATE = 0,
+  GDEY075T7_NORMAL_UPDATE = 0,
   GDEY075T7_PARTIAL_UPDATE = 1,
   GDEY075T7_FAST_UPDATE = 2
 } GDEY075T7_UPDATE_MODE;
@@ -49,42 +53,38 @@ public:
   Gdey075T7(EpdSpi &epd_spi);
   uint8_t colors_supported = 1;
 
-  void drawPixel(int16_t x, int16_t y, uint16_t color); // Override GFX own drawPixel method
+  void drawPixel(int16_t x, int16_t y, uint16_t color); // Override Adafruit_GFX drawPixel method
+  void fillScreen(uint16_t color);                      // Override Adafruit_GFX fillScreen method
 
   void initialize();
-
-  void initPartialUpdate();
-  void updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation);
-  void fillScreen(uint16_t color);
   void update();
-
   void set_update_mode(GDEY075T7_UPDATE_MODE mode);
 
 private:
   EpdSpi &epd_spi;
-  GDEY075T7_UPDATE_MODE _update_mode = GDEY075T7_FULL_UPDATE;
+  GDEY075T7_UPDATE_MODE update_mode_ = GDEY075T7_NORMAL_UPDATE;
 
   uint8_t _buffer[GDEY075T7_BUFFER_SIZE];
 
-  bool _using_partial_mode = false;
-  bool _initial = true;
-  bool _is_power_on = false;
-  bool _is_in_deep_sleep = true;
-  bool _useFastPartialUpdateFromOTP = true;
+  bool is_power_on_ = false;
+  bool is_in_deep_sleep_ = true;
+  bool use_partial_update_from_otp_ = true;
 
-  uint16_t _setPartialRamArea(uint16_t x, uint16_t y, uint16_t xe, uint16_t ye);
-  void _wakeUp();
-  void _sleep();
-  void _wait_while_busy(const char *message);
-  void _rotate(uint16_t &x, uint16_t &y, uint16_t &w, uint16_t &h);
-  void _InitDisplay();
-  void _Init_Full();
-  void _Init_Part();
-  void _Update_Full();
-  void _refresh();
-  void _PowerOn();
-  void _PowerOff();
-  void _enter_deep_sleep();
+  void set_partial_ram_area_(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  void transfer_buffer_(uint8_t command);
+  void wait_while_busy_(const char *message);
+  void rotate_(uint16_t &x, uint16_t &y, uint16_t &w, uint16_t &h);
+  void initialize_display_common_();
+  void initialize_normal_update_();
+  void initialize_fast_update_();
+  void initialize_partial_update_();
+  void send_refresh_command_();
+  void power_on_();
+  void power_off_();
+  void sleep_();
+  void refresh_();
+  void refresh_(int16_t x, int16_t y, int16_t w, int16_t h);
+  void update_partial_();
 
   static const epd_init_42 lut_20_LUTC_partial;
   static const epd_init_42 lut_21_LUTWW_partial;

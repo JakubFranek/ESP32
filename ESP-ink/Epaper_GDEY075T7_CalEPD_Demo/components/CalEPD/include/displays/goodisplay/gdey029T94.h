@@ -52,7 +52,7 @@ private:
   void _wakeUp();
   void _sleep();
 
-  void _wait_while_busy(const char *message);
+  void wait_while_busy_(const char *message);
   void _rotate(uint16_t &x, uint16_t &y, uint16_t &w, uint16_t &h);
   void _setRamDataEntryMode(uint8_t em);
   void _SetRamArea(uint8_t Xstart, uint8_t Xend, uint8_t Ystart, uint8_t Ystart1, uint8_t Yend, uint8_t Yend1);

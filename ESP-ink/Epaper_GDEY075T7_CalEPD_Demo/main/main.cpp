@@ -16,7 +16,7 @@
 
 #include "displays/goodisplay/gdey075T7.h"
 
-#define TEST_TEXT "12:34"
+#define TEST_TEXT "23:45"
 
 EpdSpi epd_spi;
 Gdey075T7 display(epd_spi);
@@ -34,9 +34,9 @@ void app_main(void)
     gpio_set_level(GPIO_NUM_2, 1);
 
     display.initialize();
+    display.set_update_mode(GDEY075T7_PARTIAL_UPDATE);
     display.setRotation(2);
 
-    display.fillScreen(EPD_WHITE);
     display.setTextColor(EPD_BLACK);
     display.setFont(&FreeSansBold72pt7b);
 
@@ -48,7 +48,7 @@ void app_main(void)
     display.setCursor(x, y);
 
     display.println(TEST_TEXT);
-    display.drawLine(0, 100, display.width(), 100, EPD_BLACK);
+    display.drawLine(0, 200, display.width(), 200, EPD_BLACK);
 
     display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
 
