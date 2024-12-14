@@ -410,5 +410,7 @@ void Gdey075T7::update()
 
   transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_2);
   send_refresh_command_();
+  epd_spi.send_command(UC8179_CMD_PARTIAL_OUT);
+  // power_off_();
   sleep_();
 }

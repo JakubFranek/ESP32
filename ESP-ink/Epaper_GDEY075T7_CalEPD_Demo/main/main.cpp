@@ -34,6 +34,7 @@ void app_main(void)
     gpio_set_level(GPIO_NUM_2, 1);
 
     display.initialize();
+    display.clear_screen();
     display.setRotation(2);
 
     display.setTextColor(EPD_BLACK);
@@ -42,18 +43,32 @@ void app_main(void)
     int16_t x1, y1;
     uint16_t w, h;
     display.getTextBounds(TEST_TEXT, 0, 0, &x1, &y1, &w, &h);
-    uint16_t x = -x1;
-    uint16_t y = -y1;
-    display.setCursor(x, y);
+    int16_t x = -x1 + 1;
+    int16_t y = -y1 + 1;
 
-    display.println(TEST_TEXT);
-    display.drawLine(0, display.height(), display.width(), 0, EPD_WHITE);
-    display.drawLine(0, 0, display.width(), display.height(), EPD_BLACK);
+    // display.drawLine(0, display.height(), display.width(), 0, EPD_WHITE);
+    // display.drawLine(0, 0, display.width(), display.height(), EPD_BLACK);
+    // display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
 
-    display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
+    uint32_t display_counter = 0;
+    string counter_string;
+    TickType_t xLastWakeTime;
+    while (true)
+    {
+        display.fillScreen(EPD_WHITE);
+        display.setCursor(x, y);
+        counter_string = std::to_string(display_counter);
+        display.print(counter_string);
 
-    display.clear_screen();
-    display.update();
+        if (display_counter > 0 && display_counter % 10 == 0)
+        {
+            display.clear_screen();
+        }
+        display.update();
+
+        display_counter++;
+        vTaskDelay(5 * 1000 / portTICK_PERIOD_MS);
+    }
 
     return;
 }
