@@ -146,9 +146,8 @@ void Gdey075T7::fillScreen(uint16_t color)
 void Gdey075T7::update()
 {
   ESP_LOGI(TAG, "update");
-  // transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_2);
-  refresh_();
-  sleep_();
+  EPD_Init_Part();
+  EPD_Dis_PartAll(_buffer);
 }
 
 /**
@@ -727,19 +726,25 @@ void Gdey075T7::update_partial_()
   send_refresh_command_();
 }
 
+void Gdey075T7::clear_screen(void)
+{
+  ESP_LOGI(TAG, "clear_screen");
+  EPD_Init();
+  EPD_WhiteScreen_White_Basemap();
+}
+
 void Gdey075T7::EPD_Init(void)
 {
   ESP_LOGI(TAG, "EPD_Init");
   epd_spi.hardware_reset(10);
 
-  epd_spi.send_command(0x01); // POWER SETTING
+  epd_spi.send_command(UC8179_CMD_POWER_SETTING);
   epd_spi.send_data(0x07);
   epd_spi.send_data(0x07); // VGH=20V,VGL=-20V
   epd_spi.send_data(0x3f); // VDH=15V
   epd_spi.send_data(0x3f); // VDL=-15V
 
-  // Enhanced display drive(Add 0x06 command)
-  epd_spi.send_command(0x06); // Booster Soft Start
+  epd_spi.send_command(UC8179_CMD_BOOSTER_SOFT_START);
   epd_spi.send_data(0x17);
   epd_spi.send_data(0x17);
   epd_spi.send_data(0x28);
@@ -747,23 +752,23 @@ void Gdey075T7::EPD_Init(void)
 
   power_on_();
 
-  epd_spi.send_command(0X00); // PANNEL SETTING
-  epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
+  epd_spi.send_command(UC8179_CMD_PANEL_SETTING);
+  epd_spi.send_data(0x1F); // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
 
-  epd_spi.send_command(0x61); // tres
-  epd_spi.send_data(0x03);    // source 800
+  epd_spi.send_command(UC8179_CMD_RESOLUTION_SETTING);
+  epd_spi.send_data(0x03); // source 800
   epd_spi.send_data(0x20);
   epd_spi.send_data(0x01); // gate 480
   epd_spi.send_data(0xE0);
 
-  epd_spi.send_command(0X15);
+  epd_spi.send_command(UC8179_CMD_DUAL_SPI);
   epd_spi.send_data(0x00);
 
-  epd_spi.send_command(0X50); // VCOM AND DATA INTERVAL SETTING
+  epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
   epd_spi.send_data(0x10);
   epd_spi.send_data(0x07);
 
-  epd_spi.send_command(0X60); // TCON SETTING
+  epd_spi.send_command(UC8179_CMD_TCON_SETTING);
   epd_spi.send_data(0x22);
 }
 
@@ -771,18 +776,19 @@ void Gdey075T7::EPD_WhiteScreen_White_Basemap(void)
 {
   ESP_LOGI(TAG, "EPD_WhiteScreen_White_Basemap");
   unsigned int i;
-  // Write Data
-  epd_spi.send_command(0x10);
+
+  epd_spi.send_command(UC8179_CMD_DATA_START_TRANSMISSION_1);
   for (i = 0; i < WIDTH * HEIGHT / 8; i++)
   {
-    epd_spi.send_data(0xFF); // is  different
+    epd_spi.send_data(EPD_BLACK);
   }
-  epd_spi.send_command(0x13);
+  epd_spi.send_command(UC8179_CMD_DATA_START_TRANSMISSION_2);
   for (i = 0; i < WIDTH * HEIGHT / 8; i++)
   {
-    epd_spi.send_data(0x00);
+    epd_spi.send_data(EPD_WHITE);
   }
-  EPD_Update();
+
+  send_refresh_command_();
 }
 
 void Gdey075T7::EPD_Init_Part(void)
@@ -790,14 +796,14 @@ void Gdey075T7::EPD_Init_Part(void)
   ESP_LOGI(TAG, "EPD_Init_Part");
   epd_spi.hardware_reset(10);
 
-  epd_spi.send_command(0X00); // PANNEL SETTING
-  epd_spi.send_data(0x1F);    // KW-3f   KWR-2F BWROTP 0f BWOTP 1f
+  epd_spi.send_command(UC8179_CMD_PANEL_SETTING);
+  epd_spi.send_data(0x1F);
 
   power_on_();
 
-  epd_spi.send_command(0xE0);
+  epd_spi.send_command(UC8179_CMD_CASCADE_SETTING);
   epd_spi.send_data(0x02);
-  epd_spi.send_command(0xE5);
+  epd_spi.send_command(UC8179_CMD_FORCE_TEMPERATURE);
   epd_spi.send_data(0x6E);
 }
 
@@ -811,42 +817,31 @@ void Gdey075T7::EPD_Dis_PartAll(const unsigned char *datas)
   x_end = x_start + PART_LINE - 1;
   y_end = y_start + PART_COLUMN - 1;
 
-  epd_spi.send_command(0x50);
+  epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
   epd_spi.send_data(0xA9);
   epd_spi.send_data(0x07);
 
-  epd_spi.send_command(0x91); // This command makes the display enter partial mode
-  epd_spi.send_command(0x90); // resolution setting
+  epd_spi.send_command(UC8179_CMD_PARTIAL_IN);
+  epd_spi.send_command(UC8179_CMD_PARTIAL_WINDOW);
   epd_spi.send_data(x_start / 256);
   epd_spi.send_data(x_start % 256); // x-start
 
   epd_spi.send_data(x_end / 256);
   epd_spi.send_data(x_end % 256 - 1); // x-end
 
-  epd_spi.send_data(y_start / 256); //
+  epd_spi.send_data(y_start / 256);
   epd_spi.send_data(y_start % 256); // y-start
 
   epd_spi.send_data(y_end / 256);
   epd_spi.send_data(y_end % 256 - 1); // y-end
   epd_spi.send_data(0x01);
 
-  epd_spi.send_command(0x13); // writes New data to SRAM.
+  epd_spi.send_command(UC8179_CMD_DATA_START_TRANSMISSION_2);
   for (i = 0; i < PART_COLUMN * PART_LINE / 8; i++)
   {
     epd_spi.send_data(~datas[i]);
   }
-  EPD_Update();
-}
 
-void Gdey075T7::EPD_DeepSleep(void)
-{
-  ESP_LOGI(TAG, "EPD_DeepSleep");
-  sleep_();
-}
-
-void Gdey075T7::EPD_Update(void)
-{
-  ESP_LOGI(TAG, "EPD_Update");
-  // Refresh
   send_refresh_command_();
+  sleep_();
 }
