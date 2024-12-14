@@ -21,7 +21,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-#define UC8179_SPI_FREQUENCY_MHZ 10
+#define UC8179_SPI_FREQUENCY_MHZ 20
 #define GDEY075T7_BUSY_TIMEOUT_US 10000000 // 10 s
 
 #define UC8179_CMD_PANEL_SETTING 0x00
@@ -170,7 +170,7 @@ void Gdey075T7::transfer_buffer_(uint8_t command)
 
     for (uint16_t x = 1; x <= xLineBytes; x++)
     {
-      data = (i < sizeof(_buffer)) ? ~_buffer[i] : ~(uint8_t)EPD_WHITE; // data in display RAM is inverted (0x00 = white)
+      data = (i < sizeof(_buffer)) ? _buffer[i] : (uint8_t)EPD_WHITE;
 
       x1buf[x - 1] = data;
 
@@ -833,7 +833,7 @@ void Gdey075T7::EPD_Dis_PartAll(const unsigned char *datas)
   epd_spi.send_command(0x13); // writes New data to SRAM.
   for (i = 0; i < PART_COLUMN * PART_LINE / 8; i++)
   {
-    epd_spi.send_data(datas[i]);
+    epd_spi.send_data(~datas[i]);
   }
   EPD_Update();
 }
@@ -841,19 +841,12 @@ void Gdey075T7::EPD_Dis_PartAll(const unsigned char *datas)
 void Gdey075T7::EPD_DeepSleep(void)
 {
   ESP_LOGI(TAG, "EPD_DeepSleep");
-  epd_spi.send_command(0X50); // VCOM AND DATA INTERVAL SETTING
-  epd_spi.send_data(0xf7);    // WBmode:VBDF 17|D7 VBDW 97 VBDB 57    WBRmode:VBDF F7 VBDW 77 VBDB 37  VBDR B7
-
-  power_off_();
-  epd_spi.send_command(0X07); // deep sleep
-  epd_spi.send_data(0xA5);
+  sleep_();
 }
 
 void Gdey075T7::EPD_Update(void)
 {
   ESP_LOGI(TAG, "EPD_Update");
   // Refresh
-  epd_spi.send_command(0x12); // DISPLAY REFRESH
-  vTaskDelay(10 / portTICK_PERIOD_MS);
-  wait_while_busy_("refresh");
+  send_refresh_command_();
 }
