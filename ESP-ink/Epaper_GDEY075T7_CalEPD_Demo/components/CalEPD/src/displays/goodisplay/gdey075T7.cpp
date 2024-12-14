@@ -85,6 +85,24 @@ void Gdey075T7::initialize()
 }
 
 /**
+ * @brief Wake up the display controller and set the framebuffer to its current
+ * content.
+ *
+ * The framebuffer re-initialization is necessary after deep sleep to ensure the
+ * future partial refresh performs correctly and does not create pixel noise.
+ *
+ * @note Only change the framebuffer content in-between calling this function and
+ * calling `update`.
+ */
+void Gdey075T7::wake_up()
+{
+  epd_spi.hardware_reset(10);
+
+  power_on_();
+  transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_1);
+}
+
+/**
  * @brief Fills the framebuffer with a given color.
  *
  * This function overrides `Adafruit_GFX::fillScreen()` for performance reasons.
@@ -319,7 +337,7 @@ void Gdey075T7::power_off_()
 void Gdey075T7::sleep_()
 {
   epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
-  epd_spi.send_data(0xF7);
+  epd_spi.send_data(0xF7); // Border output Hi-Z enabled; Border LUT selection: LUTBD; do not copy new data to old; default data polarity (1 = white) but no same-color transitions
 
   power_off_();
 
@@ -374,6 +392,7 @@ void Gdey075T7::clear_screen(void)
  * @brief Transfer the screen buffer to the display controller, refresh the screen and enter deep sleep.
  *
  * @note Call `clear_screen` after every few `update` calls to avoid ghosting.
+ * @note Call `wake_up` before next call to any display method.
  */
 void Gdey075T7::update()
 {

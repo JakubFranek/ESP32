@@ -46,13 +46,10 @@ void app_main(void)
     int16_t x = -x1 + 1;
     int16_t y = -y1 + 1;
 
-    // display.drawLine(0, display.height(), display.width(), 0, EPD_WHITE);
-    // display.drawLine(0, 0, display.width(), display.height(), EPD_BLACK);
-    // display.draw_centered_text(&FreeSans12pt7b, 0, 0, display.width(), display.height(), "CENTER");
-
     uint32_t display_counter = 0;
     string counter_string;
     TickType_t xLastWakeTime;
+
     while (true)
     {
         display.fillScreen(EPD_WHITE);
@@ -67,7 +64,10 @@ void app_main(void)
         display.update();
 
         display_counter++;
-        vTaskDelay(5 * 1000 / portTICK_PERIOD_MS);
+
+        vTaskDelay(60 * 1000 / portTICK_PERIOD_MS);
+
+        display.wake_up(); // this re-initializes the "old" frame buffer after deep sleep period, which prevents pixel noise
     }
 
     return;

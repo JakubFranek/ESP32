@@ -42,6 +42,7 @@ public:
   void fillScreen(uint16_t color);                      // Override Adafruit_GFX fillScreen method
 
   void initialize();
+  void wake_up();
   void update();
   void clear_screen();
 
