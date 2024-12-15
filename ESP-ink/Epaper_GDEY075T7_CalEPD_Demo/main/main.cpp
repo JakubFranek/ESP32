@@ -16,6 +16,8 @@
 
 #include "displays/goodisplay/gdey075T7.h"
 
+#include "image.h"
+
 #define TEST_TEXT "23:45"
 
 EpdSpi epd_spi;
@@ -83,6 +85,8 @@ void app_main(void)
         display.draw_centered_text(&FreeSans12pt7b, 500 - 2, 50, 50, 50, true, true, "f");
         display.draw_centered_text(&FreeSans12pt7b, 550 - 3, 50, 50, 50, true, true, "gaf");
         display.draw_centered_text(&FreeSans12pt7b, 600 - 4, 50, 100, 50, true, true, "ABC");
+
+        display.drawBitmap(100, 100, img, 200, 200, EPD_BLACK);
 
         if (display_counter > 0 && display_counter % 10 == 0)
         {
