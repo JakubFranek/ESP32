@@ -78,7 +78,11 @@ void app_main(void)
         display.setFont(&FreeSans12pt7b);
         display.print(ascii_string);
 
-        display.draw_centered_text(&FreeSans12pt7b, 400, 50, 300, 100, true, true, "Rectangle!");
+        display.draw_centered_text(&FreeSans12pt7b, 400, 50, 50, 50, true, true, "g");
+        display.draw_centered_text(&FreeSans12pt7b, 450 - 1, 50, 50, 50, true, true, "a");
+        display.draw_centered_text(&FreeSans12pt7b, 500 - 2, 50, 50, 50, true, true, "f");
+        display.draw_centered_text(&FreeSans12pt7b, 550 - 3, 50, 50, 50, true, true, "gaf");
+        display.draw_centered_text(&FreeSans12pt7b, 600 - 4, 50, 100, 50, true, true, "ABC");
 
         if (display_counter > 0 && display_counter % 10 == 0)
         {
