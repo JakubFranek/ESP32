@@ -16,7 +16,7 @@
 
 #include "displays/goodisplay/gdey075T7.h"
 
-#include "image.h"
+#include "weather_icons.h"
 
 #define TEST_TEXT "23:45"
 
@@ -41,6 +41,8 @@ void app_main(void)
 
     display.setTextColor(EPD_BLACK);
     display.setFont(&FreeSansBold72pt7b);
+
+    const uint8_t *weather_icon = weather_01d;
 
     int16_t x1, y1;
     uint16_t w, h;
@@ -86,7 +88,40 @@ void app_main(void)
         display.draw_centered_text(&FreeSans12pt7b, 550 - 3, 50, 50, 50, true, true, "gaf");
         display.draw_centered_text(&FreeSans12pt7b, 600 - 4, 50, 100, 50, true, true, "ABC");
 
-        display.drawBitmap(100, 100, img, 200, 200, EPD_BLACK);
+        switch (display_counter % 9)
+        {
+        case 0:
+            weather_icon = weather_01d;
+            break;
+        case 1:
+            weather_icon = weather_02d;
+            break;
+        case 2:
+            weather_icon = weather_03d;
+            break;
+        case 3:
+            weather_icon = weather_04d;
+            break;
+        case 4:
+            weather_icon = weather_09d;
+            break;
+        case 5:
+            weather_icon = weather_10d;
+            break;
+        case 6:
+            weather_icon = weather_11d;
+            break;
+        case 7:
+            weather_icon = weather_13d;
+            break;
+        case 8:
+            weather_icon = weather_50d;
+            break;
+        default:
+            ESP_LOGE("main", "Unknown weather icon");
+        }
+
+        display.drawBitmap(100, 100, weather_icon, 150, 150, EPD_BLACK);
 
         if (display_counter > 0 && display_counter % 10 == 0)
         {
