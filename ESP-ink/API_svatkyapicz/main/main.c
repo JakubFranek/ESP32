@@ -20,12 +20,16 @@
 
 #include "wifi_sta.h"
 
-#define MAX_HTTP_OUTPUT_BUFFER 4096
+#define MAX_HTTP_OUTPUT_BUFFER 2048
 
 extern const char svatkyapicz_cert_pem_start[] asm("_binary_svatkyapicz_cert_pem_start");
 extern const char svatkyapicz_cert_pem_end[] asm("_binary_svatkyapicz_cert_pem_end");
 
 static const char *TAG = "main";
+
+static char received_data[MAX_HTTP_OUTPUT_BUFFER + 1]; // Extra byte for the NULL character
+static int received_data_len = 0;
+static bool received_data_valid = false;
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -99,8 +103,20 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
         else // Chunked encoding
         {
             ESP_LOGI(TAG, "Received data chunk = %.*s", evt->data_len, (char *)evt->data);
-        }
 
+            // Check if we have enough space in the buffer
+            if (received_data_len + evt->data_len <= MAX_HTTP_OUTPUT_BUFFER)
+            {
+                // Append the received data to the global buffer
+                memcpy(received_data + received_data_len, evt->data, evt->data_len);
+                received_data_len += evt->data_len;
+            }
+            else
+            {
+                ESP_LOGW(TAG, "Not enough space to store all data in buffer.");
+                return ESP_FAIL;
+            }
+        }
         break;
 
     case HTTP_EVENT_ON_FINISH:
@@ -111,6 +127,17 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             ESP_LOGI(TAG, "Accumulated Response = %.*s", output_len, output_buffer);
             free(output_buffer);
             output_buffer = NULL;
+        }
+        if (received_data_len > 0)
+        {
+            // Add null-termination character to the end of the string
+            if (received_data_len <= MAX_HTTP_OUTPUT_BUFFER)
+            {
+                received_data[received_data_len] = '\0';
+            }
+            ESP_LOGI(TAG, "Accumulated Response = %.*s", received_data_len, received_data);
+            received_data_len = 0;
+            received_data_valid = true;
         }
         output_len = 0;
         break;
@@ -165,6 +192,9 @@ static void https_with_url(void)
     }
     esp_http_client_cleanup(client);
 
+    // In ESP-IDF case, word = uint8_t even though it's a 32-bit system, so uxTaskGetStackHighWaterMark returns number of bytes
+    ESP_LOGI(TAG, "Stack high water mark: %d bytes", uxTaskGetStackHighWaterMark(NULL));
+
     vTaskDelete(NULL);
 }
 
@@ -188,6 +218,31 @@ void app_main(void)
     wifi_init_sta();
 
     xTaskCreate(&https_with_url, "https_with_url", 8192, NULL, 5, NULL);
+
+    while (!received_data_valid)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
+    cJSON *json = cJSON_Parse(received_data);
+    if (json != NULL)
+    {
+        // Process the JSON object
+        ESP_LOGI(TAG, "JSON parsed successfully");
+        // Don't forget to free the JSON object when done
+
+        // Print the JSON member "name"
+        cJSON *name = cJSON_GetObjectItem(json, "name");
+        if (name != NULL)
+        {
+            ESP_LOGI(TAG, "Name: %s", name->valuestring);
+        }
+        cJSON_Delete(json);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON");
+    }
 
     return;
 }
