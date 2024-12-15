@@ -18,16 +18,17 @@
 #include "esp_http_client.h"
 #include "cJSON.h"
 
+#include "secrets.h"
 #include "wifi_sta.h"
 
-#define MAX_HTTP_OUTPUT_BUFFER 2048
+#define MAX_HTTP_OUTPUT_BUFFER 8192
 
-extern const char svatkyapicz_cert_pem_start[] asm("_binary_svatkyapicz_cert_pem_start");
-extern const char svatkyapicz_cert_pem_end[] asm("_binary_svatkyapicz_cert_pem_end");
+extern const char openweathermaporg_cert_pem_start[] asm("_binary_openweathermaporg_cert_pem_start");
+extern const char openweathermaporg_cert_pem_end[] asm("_binary_openweathermaporg_cert_pem_end");
 
 static const char *TAG = "main";
 
-static char received_data[MAX_HTTP_OUTPUT_BUFFER + 1]; // Extra byte for the NULL character
+static char received_data[MAX_HTTP_OUTPUT_BUFFER + 1] = {0}; // Extra byte for the NULL character
 static int received_data_len = 0;
 static bool received_data_valid = false;
 
@@ -171,11 +172,17 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 
 static void https_with_url(void)
 {
+    char url[200];
+    snprintf(url, sizeof(url), "%s%s%s%s%s%s%s",
+             "https://api.openweathermap.org/data/3.0/onecall?lat=",
+             OPENWEATHERMAP_LATITUDE, "&lon=", OPENWEATHERMAP_LONGITUDE,
+             "&appid=", OPENWEATHERMAP_API_KEY,
+             "&lang=cz&units=metric&exclude=minutely,hourly");
+
     esp_http_client_config_t config = {
-        .url = "https://svatkyapi.cz/api/day",
+        .url = url,
         .event_handler = _http_event_handler,
-        .cert_pem = svatkyapicz_cert_pem_start,
-        //.crt_bundle_attach = esp_crt_bundle_attach,
+        .cert_pem = openweathermaporg_cert_pem_start,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_err_t err = esp_http_client_perform(client);
@@ -224,6 +231,15 @@ void app_main(void)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
+    // Desired quantities to parse:
+    // current/temp
+    // current/feels_like
+    // current/weather/main
+    // daily/0/temp/day
+    // daily/0/pop
+    // daily/0/rain
+    // daily/0/weather/0/main
+
     cJSON *json = cJSON_Parse(received_data); // Watch out, this contains dynamic memory allocation
     if (json != NULL)
     {
@@ -231,12 +247,63 @@ void app_main(void)
         ESP_LOGI(TAG, "JSON parsed successfully");
         // Don't forget to free the JSON object when done
 
-        // Print the JSON member "name"
-        cJSON *name = cJSON_GetObjectItem(json, "name");
-        if (name != NULL)
+        cJSON *current = cJSON_GetObjectItem(json, "current");
+        if (current != NULL)
         {
-            ESP_LOGI(TAG, "Name: %s", name->valuestring);
+            cJSON *temp = cJSON_GetObjectItem(current, "temp");
+            if (temp != NULL)
+            {
+                ESP_LOGI(TAG, "Current temperature: %f", temp->valuedouble);
+            }
+            cJSON *feels_like = cJSON_GetObjectItem(current, "feels_like");
+            if (feels_like != NULL)
+            {
+                ESP_LOGI(TAG, "Feels like: %f", feels_like->valuedouble);
+            }
+            cJSON *weather = cJSON_GetObjectItem(current, "weather");
+            if (weather != NULL)
+            {
+                cJSON *main = cJSON_GetObjectItem(weather, "main");
+                if (main != NULL)
+                {
+                    ESP_LOGI(TAG, "Current weather: %s", main->valuestring);
+                }
+            }
         }
+
+        cJSON *daily = cJSON_GetObjectItem(json, "daily");
+        if (daily != NULL)
+        {
+            cJSON *daily_0 = cJSON_GetArrayItem(daily, "0");
+            if (daily_0 != NULL)
+            {
+                cJSON *temp = cJSON_GetObjectItem(daily_0, "temp");
+                if (temp != NULL)
+                {
+                    ESP_LOGI(TAG, "Daily temperature: %f", temp->valuedouble);
+                }
+                cJSON *pop = cJSON_GetObjectItem(daily_0, "pop");
+                if (pop != NULL)
+                {
+                    ESP_LOGI(TAG, "Daily pop: %f", pop->valuedouble);
+                }
+                cJSON *rain = cJSON_GetObjectItem(daily_0, "rain");
+                if (rain != NULL)
+                {
+                    ESP_LOGI(TAG, "Daily rain: %f", rain->valuedouble);
+                }
+                cJSON *weather = cJSON_GetObjectItem(daily_0, "weather");
+                if (weather != NULL)
+                {
+                    cJSON *main = cJSON_GetObjectItem(weather, "main");
+                    if (main != NULL)
+                    {
+                        ESP_LOGI(TAG, "Daily weather: %s", main->valuestring);
+                    }
+                }
+            }
+        }
+
         cJSON_Delete(json); // Deallocate the JSON object
     }
     else
