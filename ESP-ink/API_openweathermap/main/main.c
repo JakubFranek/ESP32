@@ -34,8 +34,6 @@ static bool received_data_valid = false;
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
-    static char *output_buffer; // Buffer to store response of http request from event handler
-    static int output_len;      // Stores number of bytes read
     switch (evt->event_id)
     {
     case HTTP_EVENT_ERROR:
@@ -58,7 +56,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
         ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
 
         // Clean the buffer in case of a new request
-        if (output_len == 0 && evt->user_data)
+        if (received_data_len == 0 && evt->user_data)
         {
             // we are just starting to copy the output data into the use
             memset(evt->user_data, 0, MAX_HTTP_OUTPUT_BUFFER);
@@ -71,39 +69,37 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             if (evt->user_data) // If user_data buffer is configured, copy the response into the buffer
             {
                 // The last byte in evt->user_data is kept for the NULL character in case of out-of-bound access.
-                copy_len = MIN(evt->data_len, (MAX_HTTP_OUTPUT_BUFFER - output_len));
+                copy_len = MIN(evt->data_len, (MAX_HTTP_OUTPUT_BUFFER - received_data_len));
                 if (copy_len)
                 {
-                    memcpy(evt->user_data + output_len, evt->data, copy_len);
+                    memcpy(evt->user_data + received_data_len, evt->data, copy_len);
                 }
             }
             else // If user_data buffer is not configured, accumulate the response in output_buffer
             {
                 int content_len = esp_http_client_get_content_length(evt->client);
 
-                if (output_buffer == NULL)
+                if (received_data_len == 0)
                 {
-                    // We initialize output_buffer with 0 because it is used by strlen() and similar functions therefore should be null terminated.
-                    output_buffer = (char *)calloc(content_len + 1, sizeof(char));
-                    output_len = 0;
-                    if (output_buffer == NULL)
-                    {
-                        ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
-                        return ESP_FAIL;
-                    }
+                    memset(received_data, 0, MAX_HTTP_OUTPUT_BUFFER + 1);
                 }
 
-                copy_len = MIN(evt->data_len, (content_len - output_len));
+                copy_len = MIN(evt->data_len, (content_len - received_data_len));
                 if (copy_len)
                 {
-                    memcpy(output_buffer + output_len, evt->data, copy_len);
+                    memcpy(received_data + received_data_len, evt->data, copy_len);
                 }
             }
-            output_len += copy_len;
+            received_data_len += copy_len;
         }
         else // Chunked encoding
         {
             ESP_LOGI(TAG, "Received data chunk = %.*s", evt->data_len, (char *)evt->data);
+
+            if (received_data_len == 0)
+            {
+                memset(received_data, 0, MAX_HTTP_OUTPUT_BUFFER + 1);
+            }
 
             // Check if we have enough space in the buffer
             if (received_data_len + evt->data_len <= MAX_HTTP_OUTPUT_BUFFER)
@@ -122,13 +118,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
-        if (output_buffer != NULL)
-        {
-            // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
-            ESP_LOGI(TAG, "Accumulated Response = %.*s", output_len, output_buffer);
-            free(output_buffer);
-            output_buffer = NULL;
-        }
+
         if (received_data_len > 0)
         {
             // Add null-termination character to the end of the string
@@ -140,7 +130,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             received_data_len = 0;
             received_data_valid = true;
         }
-        output_len = 0;
         break;
 
     case HTTP_EVENT_DISCONNECTED:
@@ -152,12 +141,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
             ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
         }
-        if (output_buffer != NULL)
-        {
-            free(output_buffer);
-            output_buffer = NULL;
-        }
-        output_len = 0;
         break;
 
     case HTTP_EVENT_REDIRECT:
@@ -177,7 +160,7 @@ static void https_with_url(void)
              "https://api.openweathermap.org/data/3.0/onecall?lat=",
              OPENWEATHERMAP_LATITUDE, "&lon=", OPENWEATHERMAP_LONGITUDE,
              "&appid=", OPENWEATHERMAP_API_KEY,
-             "&lang=cz&units=metric&exclude=minutely,hourly");
+             "&units=metric&exclude=minutely,hourly");
 
     esp_http_client_config_t config = {
         .url = url,
@@ -263,10 +246,14 @@ void app_main(void)
             cJSON *weather = cJSON_GetObjectItem(current, "weather");
             if (weather != NULL)
             {
-                cJSON *main = cJSON_GetObjectItem(weather, "main");
-                if (main != NULL)
+                cJSON *weather_0 = cJSON_GetArrayItem(weather, 0);
+                if (weather_0 != NULL)
                 {
-                    ESP_LOGI(TAG, "Current weather: %s", main->valuestring);
+                    cJSON *main = cJSON_GetObjectItem(weather_0, "main");
+                    if (main != NULL)
+                    {
+                        ESP_LOGI(TAG, "Current weather: %s", main->valuestring);
+                    }
                 }
             }
         }
@@ -274,13 +261,17 @@ void app_main(void)
         cJSON *daily = cJSON_GetObjectItem(json, "daily");
         if (daily != NULL)
         {
-            cJSON *daily_0 = cJSON_GetArrayItem(daily, "0");
+            cJSON *daily_0 = cJSON_GetArrayItem(daily, 0);
             if (daily_0 != NULL)
             {
                 cJSON *temp = cJSON_GetObjectItem(daily_0, "temp");
                 if (temp != NULL)
                 {
-                    ESP_LOGI(TAG, "Daily temperature: %f", temp->valuedouble);
+                    cJSON *day = cJSON_GetObjectItem(temp, "day");
+                    if (day != NULL)
+                    {
+                        ESP_LOGI(TAG, "Daily temperature: %f", day->valuedouble);
+                    }
                 }
                 cJSON *pop = cJSON_GetObjectItem(daily_0, "pop");
                 if (pop != NULL)
@@ -295,10 +286,14 @@ void app_main(void)
                 cJSON *weather = cJSON_GetObjectItem(daily_0, "weather");
                 if (weather != NULL)
                 {
-                    cJSON *main = cJSON_GetObjectItem(weather, "main");
-                    if (main != NULL)
+                    cJSON *weather_0 = cJSON_GetArrayItem(weather, 0);
+                    if (weather_0 != NULL)
                     {
-                        ESP_LOGI(TAG, "Daily weather: %s", main->valuestring);
+                        cJSON *main = cJSON_GetObjectItem(weather_0, "main");
+                        if (main != NULL)
+                        {
+                            ESP_LOGI(TAG, "Daily weather: %s", main->valuestring);
+                        }
                     }
                 }
             }
