@@ -29,15 +29,6 @@ size_t Epd::write(uint8_t v)
   return 1;
 }
 
-uint8_t Epd::unicode_easy_(uint8_t c) // TODO: understand the necessity of this function
-{
-  if (c < 191 && c > 131 && c != 176)
-  { // 176 is ° (degree symbol)
-    c += 64;
-  }
-  return c;
-}
-
 void Epd::print(const std::string &text)
 {
   for (auto c : text)
@@ -45,7 +36,6 @@ void Epd::print(const std::string &text)
     if (c == 195 || c == 194) // accents and special multi-byte characters start with these values
       continue;               // Skip to next letter
 
-    c = unicode_easy_(c);
     write(uint8_t(c));
   }
 }
@@ -123,10 +113,13 @@ void Epd::newline()
  * @param y The y-coordinate of the upper-left corner of the bounding box.
  * @param w The width of the bounding box.
  * @param h The height of the bounding box.
+ * @param draw_box_outline If true, draw an outline around the bounding box.
+ * @param draw_text_outline If true, draw an outline around the text.
  * @param format The printf-style format string for the text.
  * @param ... Additional arguments for the format string.
  */
-void Epd::draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h, const char *format, ...)
+void Epd::draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h,
+                             bool draw_box_outline, bool draw_text_outline, const char *format, ...)
 {
   // Handle printf arguments
   va_list args;
@@ -139,27 +132,37 @@ void Epd::draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t
   if (size < sizeof(max_buffer))
     text = std::string(max_buffer);
   else
-    ESP_LOGE("draw_centered_text", "max_buffer out of range. Increase max_buffer!");
+    ESP_LOGE(TAG, "draw_centered_text: max_buffer out of range");
 
   // Draw external boundary where text needs to be centered in the middle
   setFont(font);
   int16_t text_x = 0, text_y = 0;
   uint16_t text_w = 0, text_h = 0;
 
-  getTextBounds(text.c_str(), x, y, &text_x, &text_y, &text_w, &text_h);
+  getTextBounds(text.c_str(), x, y, &text_x, &text_y, &text_w, &text_h); // FIXME: this method, or possibly even charBounds function, is bugged
 
   // Calculate the middle position
   uint16_t ty = (h / 2) + y + (text_h / 2);
 
-  // Fix for big fonts (>100 pt)
-  if (text_h > (height() / 3))
+  if (text_h > (height() / 3)) // Fix for big fonts (>100 pt)
   {
     text_x += (w - text_w) / 2.2;
     ty -= text_h * 1.8;
   }
   else
-    text_x = -text_x + (w - text_w) / 2;
-  // drawRect(text_x, ty - text_h, text_w, text_h, 0); // text boundaries test
+  {
+    text_x += (w - text_w) / 2;
+  }
+
+  if (draw_text_outline)
+  {
+    drawRect(text_x + 1, ty - text_h + 1, text_w, text_h, 0); // +2/+6 for "Rectangle!", +1/+1 for "Center!"
+  }
+
+  if (draw_box_outline)
+  {
+    drawRect(x, y, w, h, 0);
+  }
 
   if (text_w > w)
     ESP_LOGE(TAG, "draw_centered_text: text width out of bounds");

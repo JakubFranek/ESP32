@@ -43,31 +43,54 @@ void app_main(void)
     int16_t x1, y1;
     uint16_t w, h;
     display.getTextBounds(TEST_TEXT, 0, 0, &x1, &y1, &w, &h);
-    int16_t x = -x1 + 1;
+    int16_t x = -x1 + 4;
     int16_t y = -y1 + 1;
 
     uint32_t display_counter = 0;
     string counter_string;
-    TickType_t xLastWakeTime;
+
+    // Create a string containing all printable ASCII characters
+    // (32 to 126 decimal, 0x20 to 0x7E hexadecimal)
+    string ascii_string = "ASCII 0x20 to 0x7E:";
+    for (int i = 32; i <= 126; i++)
+    {
+        ascii_string += char(i);
+    }
 
     while (true)
     {
+        if (display_counter > 0)
+        {
+            gpio_set_level(GPIO_NUM_2, 1);
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+
+            display.wake_up(); // this re-initializes the "old" frame buffer after deep sleep period, which prevents pixel noise
+        }
+
+        /* --- Frame buffer CAN change now --- */
         display.fillScreen(EPD_WHITE);
         display.setCursor(x, y);
         counter_string = std::to_string(display_counter);
+        display.setFont(&FreeSansBold72pt7b);
         display.print(counter_string);
+
+        display.setCursor(x, y + 300);
+        display.setFont(&FreeSans12pt7b);
+        display.print(ascii_string);
+
+        display.draw_centered_text(&FreeSans12pt7b, 400, 50, 300, 100, true, true, "Rectangle!");
 
         if (display_counter > 0 && display_counter % 10 == 0)
         {
             display.clear_screen();
         }
         display.update();
+        /* --- Frame buffer MUST NOT change now --- */
 
         display_counter++;
+        gpio_set_level(GPIO_NUM_2, 0);
 
         vTaskDelay(60 * 1000 / portTICK_PERIOD_MS);
-
-        display.wake_up(); // this re-initializes the "old" frame buffer after deep sleep period, which prevents pixel noise
     }
 
     return;

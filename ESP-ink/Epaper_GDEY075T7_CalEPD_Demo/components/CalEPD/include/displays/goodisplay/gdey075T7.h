@@ -23,14 +23,13 @@
 #include "esp_log.h"
 
 #include "epd.h"
+#include "epd_colors.h"
 #include "Adafruit_GFX.h"
 #include "epdspi.h"
-#include "gdew_4grays.h"
 #include "esp_timer.h"
 
 #define GDEY075T7_WIDTH 800
 #define GDEY075T7_HEIGHT 480
-
 #define GDEY075T7_BUFFER_SIZE (uint32_t(GDEY075T7_WIDTH) * uint32_t(GDEY075T7_HEIGHT) / 8)
 
 class Gdey075T7 : public Epd

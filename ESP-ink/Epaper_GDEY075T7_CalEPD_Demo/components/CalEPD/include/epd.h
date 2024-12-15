@@ -41,14 +41,13 @@ public:
     void println(const std::string &text);
     void printerf(const char *format, ...);
     void newline();
-    void draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h, const char *format, ...);
+    void draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h, bool draw_box_outline, bool draw_text_outline, const char *format, ...);
 
 protected:
-    static constexpr const char *TAG = "Epd class";
+    static constexpr const char *TAG = "Epd";
 
     static inline uint16_t gx_uint16_min(uint16_t a, uint16_t b) { return (a < b ? a : b); };
     static inline uint16_t gx_uint16_max(uint16_t a, uint16_t b) { return (a > b ? a : b); };
-    bool _using_partial_mode = false;
 
     template <typename T>
     static inline void
@@ -61,7 +60,5 @@ protected:
 
 private:
     virtual void wait_while_busy_(const char *message) = 0;
-
-    uint8_t unicode_easy_(uint8_t c);
 };
 #endif

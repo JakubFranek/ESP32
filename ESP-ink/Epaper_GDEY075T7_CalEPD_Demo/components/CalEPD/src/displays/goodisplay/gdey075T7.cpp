@@ -89,7 +89,7 @@ void Gdey075T7::initialize()
  * content.
  *
  * The framebuffer re-initialization is necessary after deep sleep to ensure the
- * future partial refresh performs correctly and does not create pixel noise.
+ * future no-flicker refresh performs correctly and does not create pixel noise.
  *
  * @note Only change the framebuffer content in-between calling this function and
  * calling `update`.
@@ -107,7 +107,7 @@ void Gdey075T7::wake_up()
  *
  * This function overrides `Adafruit_GFX::fillScreen()` for performance reasons.
  *
- * @param color The color to use to fill the framebuffer. This is either EPD_WHITE or EPD_BLACK.
+ * @param color The color to use to fill the framebuffer. This is either `EPD_WHITE` or `EPD_BLACK`.
  */
 void Gdey075T7::fillScreen(uint16_t color)
 {
@@ -119,7 +119,7 @@ void Gdey075T7::fillScreen(uint16_t color)
 }
 
 /**
- * @brief Transfer the screen buffer to the display controller.
+ * @brief Transfer the framebuffer to the display controller.
  *
  * @param command The command to send to the display controller.
  */
@@ -146,6 +146,15 @@ void Gdey075T7::transfer_buffer_(uint8_t command)
   }
 }
 
+/**
+ * @brief Transfer a single color to the display controller.
+ *
+ * This function transfers a single color to the display controller, filling the entire
+ * display with that color.
+ *
+ * @param command The command to send to the display controller.
+ * @param color The color to use to fill the display. This is either `EPD_WHITE` or `EPD_BLACK`.
+ */
 void Gdey075T7::transfer_single_color_(uint8_t command, uint16_t color)
 {
   uint16_t i = 0;
@@ -345,6 +354,14 @@ void Gdey075T7::sleep_()
   epd_spi.send_data(0xA5); // Magic number to enter deep sleep as defined in UC8179 datasheet
 }
 
+/**
+ * @brief Clear the display to white.
+ *
+ * Wakes up the display and performs a full screen clear to remove ghosting.
+ *
+ * @note This function should be called after every few calls to `update()` to avoid
+ * ghosting.
+ */
 void Gdey075T7::clear_screen(void)
 {
   epd_spi.hardware_reset(10);
@@ -377,7 +394,7 @@ void Gdey075T7::clear_screen(void)
   epd_spi.send_data(0x00); // (default) Dual SPI mode: disabled
 
   epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
-  epd_spi.send_data(0x10); // TODO: add comment here
+  epd_spi.send_data(0x10); // Border output Hi-Z disabled; Border LUT selection: LUTR; do not copy new data to old; default data polarity (1 = white) with same-color transitions
   epd_spi.send_data(0x07); // VCOM and data interval: 0d10
 
   epd_spi.send_command(UC8179_CMD_TCON_SETTING);
@@ -389,10 +406,10 @@ void Gdey075T7::clear_screen(void)
 }
 
 /**
- * @brief Transfer the screen buffer to the display controller, refresh the screen and enter deep sleep.
+ * @brief Perform no-flicker screen update and enter deep sleep.
  *
  * @note Call `clear_screen` after every few `update` calls to avoid ghosting.
- * @note Call `wake_up` before next call to any display method.
+ * @note Call `wake_up` before next call to any display method, including this one.
  */
 void Gdey075T7::update()
 {
@@ -407,7 +424,6 @@ void Gdey075T7::update()
   epd_spi.send_data(0x02); // Temperature value is defined by TS_SET register
   epd_spi.send_command(UC8179_CMD_FORCE_TEMPERATURE);
   epd_spi.send_data(0x6E); // Write 6E into TS_SET register (110 degrees Celsius)
-
   epd_spi.send_command(UC8179_CMD_VCOM_AND_DATA_INTERVAL_SETTING);
   epd_spi.send_data(0xA9); // Border output Hi-Z disabled; Border LUT selection: LUTKW, Copy new data to old data enabled; default data polarity (0 = black)
   epd_spi.send_data(0x07); // VCOM and data interval: 0d10
@@ -416,20 +432,17 @@ void Gdey075T7::update()
   epd_spi.send_command(UC8179_CMD_PARTIAL_WINDOW);
   epd_spi.send_data(0); // x-start
   epd_spi.send_data(0);
-
   epd_spi.send_data((WIDTH - 1) / 256); // x-end
   epd_spi.send_data((WIDTH - 1) % 256 - 1);
-
   epd_spi.send_data(0); // y-start
   epd_spi.send_data(0);
-
   epd_spi.send_data((HEIGHT - 1) / 256); // y-end
   epd_spi.send_data((HEIGHT - 1) % 256 - 1);
-  epd_spi.send_data(0x01);
+  epd_spi.send_data(0x01); // Full-screen update
 
-  transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_2);
+  transfer_buffer_(UC8179_CMD_DATA_START_TRANSMISSION_2); // Transfers frame buffer to "new" RAM
   send_refresh_command_();
   epd_spi.send_command(UC8179_CMD_PARTIAL_OUT);
-  // power_off_();
+
   sleep_();
 }
