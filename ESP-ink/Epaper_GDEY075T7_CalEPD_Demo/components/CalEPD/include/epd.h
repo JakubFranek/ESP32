@@ -27,6 +27,13 @@
 
 using namespace std;
 
+typedef enum TEXT_ALIGNMENT
+{
+    TEXT_ALIGNMENT_LEFT = 0,
+    TEXT_ALIGNMENT_CENTER,
+    TEXT_ALIGNMENT_RIGHT
+} TEXT_ALIGNMENT;
+
 class Epd : public virtual Adafruit_GFX
 {
 public:
@@ -41,7 +48,9 @@ public:
     void println(const std::string &text);
     void printerf(const char *format, ...);
     void newline();
-    void draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h, bool draw_box_outline, bool draw_text_outline, const char *format, ...);
+    void draw_aligned_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h,
+                           bool draw_box_outline, bool draw_text_outline, TEXT_ALIGNMENT alignment,
+                           const char *format, ...);
 
 protected:
     static constexpr const char *TAG = "Epd";

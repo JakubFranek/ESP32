@@ -101,7 +101,7 @@ void Epd::newline()
 }
 
 /**
- * @brief Draws text centered within a specified boundary.
+ * @brief Draws text vertically centered within a specified boundary.
  *
  * This function formats a string using printf-style arguments, calculates
  * the bounding box of the rendered text, and positions it centered within
@@ -115,11 +115,12 @@ void Epd::newline()
  * @param h The height of the bounding box.
  * @param draw_box_outline If true, draw an outline around the bounding box.
  * @param draw_text_outline If true, draw an outline around the text.
+ * @param alignment The horizontal alignment of the text within the bounding box. Text does not wrap!
  * @param format The printf-style format string for the text.
  * @param ... Additional arguments for the format string.
  */
-void Epd::draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h,
-                             bool draw_box_outline, bool draw_text_outline, const char *format, ...)
+void Epd::draw_aligned_text(const GFXfont *font, int16_t x, int16_t y, uint16_t w, uint16_t h,
+                            bool draw_box_outline, bool draw_text_outline, TEXT_ALIGNMENT alignment, const char *format, ...)
 {
   // Handle printf arguments
   va_list args;
@@ -139,16 +140,25 @@ void Epd::draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t
   int16_t text_x = 0, text_y = 0;
   uint16_t text_w = 0, text_h = 0;
 
-  getTextBounds(text.c_str(), x, y, &text_x, &text_y, &text_w, &text_h); // FIXME: this method, or possibly even charBounds function, is bugged
+  getTextBounds(text.c_str(), x, y, &text_x, &text_y, &text_w, &text_h);
 
   // Calculate the middle position
   uint16_t dty = (h / 2) + (y - text_y) / 2; // shift text cursor by this much
   uint16_t ty = y + dty;                     // new text origin (cursor y-position)
-  text_x += (w - text_w) / 2;
+  uint16_t dtx;
+
+  if (alignment == TEXT_ALIGNMENT_LEFT)
+    dtx = 0;
+  else if (alignment == TEXT_ALIGNMENT_RIGHT)
+    dtx = (w - text_w) - (text_x - x);
+  else
+    dtx = (w - text_w) / 2 + (text_x - x);
+
+  uint16_t tx = x + dtx;
 
   if (draw_text_outline)
   {
-    drawRect(text_x + 1, text_y + dty, text_w, text_h, 0);
+    drawRect(tx, text_y + dty, text_w, text_h, 0); // (text_x - x) is to account for the text x-offset
   }
 
   if (draw_box_outline)
@@ -157,11 +167,15 @@ void Epd::draw_centered_text(const GFXfont *font, int16_t x, int16_t y, uint16_t
   }
 
   if (text_w > w)
-    ESP_LOGE(TAG, "draw_centered_text: text width out of bounds");
+    ESP_LOGE(TAG, "draw_centered_text [%s]: text width out of bounds", text.c_str());
 
   if (text_h > h)
-    ESP_LOGE(TAG, "draw_centered_text: text height out of bounds");
+    ESP_LOGE(TAG, "draw_centered_text [%s]: text height out of bounds", text.c_str());
 
-  setCursor(text_x, ty);
+  ESP_LOGI(TAG, "draw_centered_text: string = %s, x = %d, y = %d, \
+w = %d, h = %d, text_x = %d, text_y = %d, text_w = %d, text_h = %d, tx = %d, ty = %d",
+           text.c_str(), x, y, w, h, text_x, text_y, text_w, text_h, tx, ty);
+
+  setCursor(tx, ty);
   print(text);
 }

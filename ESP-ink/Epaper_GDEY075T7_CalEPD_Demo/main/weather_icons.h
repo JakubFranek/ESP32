@@ -11,8 +11,8 @@
  * 144 px * 144 px / 8 = 20736 px / 8 = 2592 bytes per picture
  */
 
-#define WEATHER_ICON_SIZE 144              // px
-#define WEATHER_ICON_BYTES (144 * 144) / 8 // bytes
+#define WEATHER_ICON_SIZE 144                                          // px
+#define WEATHER_ICON_BYTES (WEATHER_ICON_SIZE * WEATHER_ICON_SIZE) / 8 // bytes
 
 const uint8_t weather_01d[WEATHER_ICON_BYTES] = { // '01d_bw', 144x144px
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
