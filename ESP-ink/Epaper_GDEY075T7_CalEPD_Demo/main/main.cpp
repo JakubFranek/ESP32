@@ -121,9 +121,9 @@ void app_main(void)
             ESP_LOGE("main", "Unknown weather icon");
         }
 
-        display.drawBitmap(100, 100, weather_icon, 150, 150, EPD_BLACK);
+        display.drawBitmap(100, 100, weather_icon, WEATHER_ICON_SIZE, WEATHER_ICON_SIZE, EPD_BLACK);
 
-        if (display_counter > 0 && display_counter % 10 == 0)
+        if (display_counter > 0 && display_counter % 15 == 0)
         {
             display.clear_screen();
         }
