@@ -133,10 +133,8 @@ void app_main(void)
 
         display.drawLine(0, 429, (GDEY075T7_WIDTH / 2), 429, EPD_BLACK); // last horizontal line in the weather section
 
-        // TODO: replace the following with a function which will split the text into multiple lines if needed
-
-        // print_weather_summary(&display, "You can expect light showers in the morning, with clearing in the afternoon.");
-        print_weather_summary(&display, "Expect a day of partly cloudy with rain");
+        print_weather_summary(&display, "You can expect light showers in the morning, with clearing in the afternoon.");
+        // print_weather_summary(&display, "Expect a day of partly cloudy with rain.");
 
         display.draw_aligned_text(&FreeSansBold12pt7b, (GDEY075T7_WIDTH / 2) + 5, DISPLAY_VSEC0_HEIGHT, 130, DISPLAY_TEXT_12PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, "Misto");
         display.draw_aligned_text(&FreeSansBold12pt7b, ((GDEY075T7_WIDTH * 5) / 8) + 5, DISPLAY_VSEC0_HEIGHT, 135, DISPLAY_TEXT_12PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_RIGHT, "Teplota");
