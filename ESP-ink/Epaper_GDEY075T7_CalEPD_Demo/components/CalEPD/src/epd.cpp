@@ -146,19 +146,20 @@ void Epd::draw_aligned_text(const GFXfont *font, int16_t x, int16_t y, uint16_t 
   uint16_t dty = (h / 2) + (y - text_y) / 2; // shift text cursor by this much
   uint16_t ty = y + dty;                     // new text origin (cursor y-position)
   uint16_t dtx;
+  uint16_t text_x_offset = text_x - x;
 
   if (alignment == TEXT_ALIGNMENT_LEFT)
-    dtx = 0;
+    dtx = -text_x_offset;
   else if (alignment == TEXT_ALIGNMENT_RIGHT)
-    dtx = (w - text_w) - (text_x - x);
+    dtx = (w - text_w) - text_x_offset;
   else
-    dtx = (w - text_w) / 2 + (text_x - x);
+    dtx = (w - text_w) / 2 - text_x_offset;
 
   uint16_t tx = x + dtx;
 
   if (draw_text_outline)
   {
-    drawRect(tx, text_y + dty, text_w, text_h, 0); // (text_x - x) is to account for the text x-offset
+    drawRect(tx + text_x_offset, text_y + dty, text_w, text_h, 0);
   }
 
   if (draw_box_outline)
