@@ -80,7 +80,7 @@ void app_main(void)
         /* --- Frame buffer CAN change now --- */
 
         display.fillScreen(EPD_WHITE);
-        display.draw_aligned_text(&FreeSansBold72pt7b, 0, 0, GDEY075T7_WIDTH / 2, 107, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_CENTER, "23:45");
+        display.draw_aligned_text(&FreeSansBold72pt7b, 0, 0, GDEY075T7_WIDTH / 2, 107, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, "23:45");
 
         display.draw_aligned_text(&FreeSansBold18pt7b, GDEY075T7_WIDTH / 2, 0, GDEY075T7_WIDTH / 2, DISPLAY_VSEC0_HEIGHT / 2, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_RIGHT, "utery 24.12.2024");
         display.draw_aligned_text(&FreeSansBold16pt7b, GDEY075T7_WIDTH / 2, DISPLAY_VSEC0_HEIGHT / 2, GDEY075T7_WIDTH / 2, DISPLAY_VSEC0_HEIGHT / 2, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_RIGHT, "Stedry den / Adam a Eva");
