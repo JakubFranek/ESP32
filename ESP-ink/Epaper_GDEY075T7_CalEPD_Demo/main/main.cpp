@@ -41,6 +41,8 @@
 EpdSpi epd_spi;
 Gdey075T7 display(epd_spi);
 
+void print_weather_summary(Gdey075T7 *display, string weather_summary);
+
 extern "C"
 {
     void app_main(void);
@@ -133,8 +135,8 @@ void app_main(void)
 
         // TODO: replace the following with a function which will split the text into multiple lines if needed
 
-        display.draw_aligned_text(&FreeSans10pt7b, 0, DISPLAY_VSEC2_TEXT_YPOS + 3 * DISPLAY_TEXT_10PT_YOFFSET, GDEY075T7_WIDTH / 2, DISPLAY_TEXT_10PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, "You can expect light showers in the morning,");
-        display.draw_aligned_text(&FreeSans10pt7b, 0, DISPLAY_VSEC2_TEXT_YPOS + 4 * DISPLAY_TEXT_10PT_YOFFSET, GDEY075T7_WIDTH / 2, DISPLAY_TEXT_10PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, "with clearing in the afternoon.");
+        // print_weather_summary(&display, "You can expect light showers in the morning, with clearing in the afternoon.");
+        print_weather_summary(&display, "Expect a day of partly cloudy with rain");
 
         display.draw_aligned_text(&FreeSansBold12pt7b, (GDEY075T7_WIDTH / 2) + 5, DISPLAY_VSEC0_HEIGHT, 130, DISPLAY_TEXT_12PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, "Misto");
         display.draw_aligned_text(&FreeSansBold12pt7b, ((GDEY075T7_WIDTH * 5) / 8) + 5, DISPLAY_VSEC0_HEIGHT, 135, DISPLAY_TEXT_12PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_RIGHT, "Teplota");
@@ -242,4 +244,61 @@ void app_main(void)
     }
 
     return;
+}
+
+/**
+ * @brief Prints a weather summary string on the display, splitting it into two lines if it's too long.
+ * @param display The display to print on.
+ * @param weather_summary The weather summary string.
+ */
+void print_weather_summary(Gdey075T7 *display, string weather_summary)
+{
+    display->setFont(&FreeSans10pt7b);
+    uint16_t w, h;
+    int16_t x, y;
+    display->getTextBounds(weather_summary.c_str(), 0, 0, &x, &y, &w, &h);
+
+    if (w < GDEY075T7_WIDTH / 2)
+    {
+        display->draw_aligned_text(&FreeSans10pt7b, 0, DISPLAY_VSEC2_TEXT_YPOS + 3 * DISPLAY_TEXT_10PT_YOFFSET, GDEY075T7_WIDTH / 2, DISPLAY_TEXT_10PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, weather_summary.c_str());
+        return;
+    }
+
+    string line_1 = "";
+    string line_2 = "";
+    string line_test = "";
+
+    int i = 0;
+    int whitespace_pos = weather_summary.length();
+    while (i < weather_summary.length())
+    {
+        if (weather_summary[i] == ' ')
+        {
+            line_test = weather_summary.substr(0, i);
+
+            display->getTextBounds(line_test.c_str(), 0, 0, &x, &y, &w, &h);
+
+            if (w < GDEY075T7_WIDTH / 2)
+            {
+                whitespace_pos = i; // save this position
+            }
+            else
+            {
+                line_1 = weather_summary.substr(0, whitespace_pos);
+                line_2 = weather_summary.substr(whitespace_pos + 1, weather_summary.length() - whitespace_pos - 1);
+                break;
+            }
+        }
+        i++;
+    }
+
+    if (whitespace_pos == weather_summary.length()) // No suitable whitespace found
+    {
+        line_1 = weather_summary;
+        line_2 = "";
+        ESP_LOGE("main", "No suitable whitespace for weather summary string splitting");
+    }
+
+    display->draw_aligned_text(&FreeSans10pt7b, 0, DISPLAY_VSEC2_TEXT_YPOS + 3 * DISPLAY_TEXT_10PT_YOFFSET, GDEY075T7_WIDTH / 2, DISPLAY_TEXT_10PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, line_1.c_str());
+    display->draw_aligned_text(&FreeSans10pt7b, 0, DISPLAY_VSEC2_TEXT_YPOS + 4 * DISPLAY_TEXT_10PT_YOFFSET, GDEY075T7_WIDTH / 2, DISPLAY_TEXT_10PT_YOFFSET, SHOW_DEBUG_RECTS, SHOW_DEBUG_RECTS, TEXT_ALIGNMENT_LEFT, line_2.c_str());
 }
